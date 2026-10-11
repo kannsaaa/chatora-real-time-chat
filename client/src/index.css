@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    background-color: #FFF9F5;
+    color: #34233A;
+    font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Custom sweet warm scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #EED7CB;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #DDBFB0;
+}
+
+/* Sweet Chaos Selection */
+::selection {
+  background-color: #FF6F91;
+  color: #FFFFFF;
+}
+
+.squircle {
+  --squircle-fg: var(--bg, #ffffff);
+  --squircle-size: 44px;
+  --squircle-radii: 50% / 10%;
+
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 80%;
+
+  width: var(--squircle-size);
+}
+
+.squircle::before,
+.squircle::after {
+  align-self: center;
+  background-color: var(--squircle-bg-color, #6B8AFD); 
+  content: "";
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: center;
+}
+
+.squircle::before,
+.squircle::after {
+  border-radius: var(--squircle-radii);
+  height: 115%;
+  width: 100%;
+}
+
+.squircle::after {
+  transform: rotate(90deg);
+}
+
+.squircle__inline {
+  border-radius: 7%;
+  display: grid;
+  inset-block: 5%;
+  inset-inline: 5%;
+  place-content: center;
+  position: absolute;
+  z-index: 1;
+}

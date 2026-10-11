@@ -1,0 +1,70 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: {
+    extend: {
+      colors: {
+        // Sweet Chaos Palette
+        cream: {
+          50: "#FFFDFB",
+          100: "#FFF9F5",
+          200: "#FFF3EB",
+          300: "#FDE8DC",
+          400: "#FAD8C7",
+        },
+        plum: {
+          900: "#241628",
+          800: "#34233A",
+          700: "#45304C",
+          600: "#5B4365",
+          500: "#755A7E",
+          400: "#8E7498",
+          300: "#A993B2",
+          200: "#C8B7CF",
+          100: "#E8DEED",
+          50: "#F6F2F8",
+        },
+        chatora: {
+          pink: "#FF6F91",
+          pinkHover: "#F0577C",
+          pinkLight: "#FFEAF0",
+          peach: "#FF9E79",
+          peachLight: "#FFF0E8",
+          lavender: "#A78BFA",
+          lavenderLight: "#F2EEFF",
+          yellow: "#FDE68A",
+          mint: "#10B981",
+          coral: "#F43F5E",
+          border: "#F2DFD4",
+        },
+        // Semantic tokens for backward compatibility and clean styling
+        dark: "#34233A",
+        background: "#FFF9F5",
+        surface: "#FFFFFF",
+        "surface-elevated": "#FFF4ED",
+        "surface-hover": "#FFEBE0",
+        primary: "#FF6F91",
+        primarySecond: "#FF9E79",
+        accent: "#FF6F91",
+        "accent-hover": "#F0577C",
+        "accent-purple": "#A78BFA",
+        "border-subtle": "#F2DFD4",
+        secondary: "#10B981",
+        tertiary: "#F43F5E",
+      },
+      fontFamily: {
+        sans: ["'Plus Jakarta Sans'", "'Inter'", "system-ui", "sans-serif"],
+      },
+      boxShadow: {
+        sweet: "0 4px 20px -2px rgba(74, 40, 68, 0.06), 0 2px 6px -1px rgba(74, 40, 68, 0.04)",
+        "sweet-lg": "0 12px 36px -4px rgba(74, 40, 68, 0.12), 0 4px 14px -2px rgba(74, 40, 68, 0.06)",
+        "sweet-pink": "0 8px 24px -4px rgba(255, 111, 145, 0.35)",
+        "sweet-sm": "0 2px 8px -1px rgba(74, 40, 68, 0.05)",
+        glass: "0 8px 30px -4px rgba(74, 40, 68, 0.08)",
+        glow: "0 0 25px -4px rgba(255, 111, 145, 0.35)",
+        "glow-sm": "0 0 15px -3px rgba(255, 111, 145, 0.28)",
+      },
+    },
+  },
+  plugins: [],
+};
