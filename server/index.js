@@ -20,6 +20,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4000",
   "https://swifty-chatty-appy.onrender.com",
+  "https://chatora-u7yz.onrender.com",
   process.env.FRONTEND_URL,
 ].filter(Boolean);
 
