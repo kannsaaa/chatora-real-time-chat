@@ -18,21 +18,35 @@ const VerifyEmail = () => {
   }, [isAuthenticated, navigate, checkAuth]);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchData = async () => {
       try {
         setLoading(true);
         const response = await axios.get(`/api/user/${id}/verify/${token}`);
-        toast.success(response.data.message || "Email verified! ✨");
-        setVerifiedSuccess(true);
+        if (isMounted) {
+          toast.success(response.data.message || "Email verified! ✨");
+          setVerifiedSuccess(true);
+        }
       } catch (error) {
-        setLoading(false);
-        setVerifiedSuccess(false);
-        toast.error(error.response?.data?.message || "Verification failed");
+        if (!isMounted) return;
+        const errMsg = error.response?.data?.message || "";
+        if (errMsg.toLowerCase().includes("already verified")) {
+          toast.success("Account is already verified! You can log in. ✨");
+          setVerifiedSuccess(true);
+        } else {
+          setVerifiedSuccess(false);
+          toast.error(errMsg || "Verification failed");
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
     fetchData();
+    return () => {
+      isMounted = false;
+    };
   }, [id, token]);
 
   return (

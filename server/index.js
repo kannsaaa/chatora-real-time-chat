@@ -5,23 +5,28 @@ const app = express();
 const connection = require("./db/db.js");
 const userRoute = require("./routes/userRoute.js");
 const avatarRoute = require("./routes/avatarRoute.js");
-const cookieParser = require('cookie-parser')
+const cookieParser = require("cookie-parser");
 const createWebSocketServer = require("./wsServer.js");
 const path = require("path");
+const fs = require("fs");
+const verifyEmail = require("./controllers/emailVerifyController.js");
 
-//database connection
+// Database connection
 connection();
 
-//middlewares
+// Middlewares
 app.use(express.json());
-app.use(cookieParser())
+app.use(cookieParser());
 
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:4000",
   "https://swifty-chatty-appy.onrender.com",
   "https://chatora-u7yz.onrender.com",
+  "https://chatora-real-time-chat.onrender.com",
   process.env.FRONTEND_URL,
+  process.env.CLIENT_URL,
+  process.env.BASE_URL,
 ].filter(Boolean);
 
 const corsOptions = {
@@ -38,6 +43,10 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Direct verification endpoints (handles clicks pointing to backend or frontend route paths)
+app.get("/users/:id/verify/:token", verifyEmail);
+app.get("/api/users/:id/verify/:token", verifyEmail);
 
 app.use("/api/user", userRoute);
 app.use("/api/avatar", avatarRoute);
@@ -64,17 +73,26 @@ app.use("/api/chaos", chaosRoute);
 const groupRoute = require("./routes/groupRoute.js");
 app.use("/api/groups", groupRoute);
 
+// Serve frontend build if present (e.g. unified deployment on Render)
+const clientDist = path.join(__dirname, "..", "client", "dist");
+if (fs.existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, "index.html"), (err) => {
+      if (err) next(err);
+    });
+  });
+}
+
+// Bind to process.env.PORT and 0.0.0.0 for Render compatibility
 const port = process.env.PORT || 4000;
-const server = app.listen(port, () => console.log(`Application Running on Port ${port}`));
+const server = app.listen(port, "0.0.0.0", () =>
+  console.log(`Application Running on Port ${port} listening on 0.0.0.0`)
+);
 
-createWebSocketServer(server); 
+createWebSocketServer(server);
 
-// Serve frontend if in production (optional, typically handled by Vite/Nginx in actual prod)
-// app.use(express.static(path.join(__dirname, "..", "client", "dist")));
-// app.get('/*', (req, res) => {
-//   res.sendFile(path.join(__dirname, '../client/dist/index.html'), function (err) {
-//     if (err) {
-//       console.error('Error sending file:', err);
-//     }
-//   });
-// });
+module.exports = { app, server };

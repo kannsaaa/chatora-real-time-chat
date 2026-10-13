@@ -69,7 +69,19 @@ const registerController = async (req, res) => {
       expiresAt: Date.now() + 3600000,
     }).save();
 
-    const url = `${process.env.BASE_URL}/users/${user._id}/verify/${token.token}`;
+    const frontendBase = (
+      process.env.FRONTEND_URL ||
+      process.env.CLIENT_URL ||
+      process.env.BASE_URL ||
+      "http://localhost:5173"
+    )
+      .trim()
+      .replace(/\/+$/, "");
+
+    const url = `${frontendBase}/users/${user._id}/verify/${token.token}`;
+    console.log(
+      `[registerController] Verification URL generated for ${user.email}: ${url}`
+    );
 
     try {
       await sendEmail(user.email, "Verify Email", url);
