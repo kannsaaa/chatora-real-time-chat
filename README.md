@@ -87,7 +87,7 @@ Chatora features the bespoke **Sweet Chaos** design language, crafted to feel wa
 - **Authorization**: Protected REST middleware and authenticated WebSocket handshake validation
 
 ### Email Service
-- **Mailer**: Nodemailer (SMTP integration for email verification)
+- **Mailer**: Resend (HTTPS API integration for reliable email verification delivery)
 
 ---
 
@@ -224,12 +224,8 @@ Create `server/.env` based on `server/.env.example`. **Never commit your `.env` 
 | `PORT` | Port for the Express and WebSocket server | `4000` |
 | `BASE_URL` | Frontend client URL (CORS and email redirects) | `http://localhost:5173` |
 | `NODE_ENV` | Application environment mode | `development` |
-| `HOST` | SMTP server host *(optional)* | `smtp.example.com` |
-| `SERVICE` | SMTP service name *(optional)* | `gmail` |
-| `EMAIL_PORT` | SMTP port *(optional)* | `587` |
-| `SECURE` | Use SSL/TLS for SMTP *(optional)* | `true` |
-| `SMTP_USER` | SMTP username / address *(optional)* | `user@example.com` |
-| `SMTP_PASS` | SMTP application password *(optional)* | `your_smtp_password` |
+| `RESEND_API_KEY` | Resend API key for HTTPS email delivery | `your_resend_api_key_here` |
+| `RESEND_FROM_EMAIL` | Sender email address *(e.g. `onboarding@resend.dev` or verified domain)* | `onboarding@resend.dev` |
 
 ### Frontend Configuration (`client/.env`)
 

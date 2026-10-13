@@ -76,15 +76,26 @@ const registerController = async (req, res) => {
       user.verificationLinkSent = true;
       await user.save();
     } catch (emailError) {
-      // In development, auto-verify the user if SMTP is not configured
-      if (process.env.NODE_ENV === "development" && (!process.env.SMTP_USER || !process.env.HOST)) {
-        user.verified = true;
-        user.verificationLinkSent = true;
-        await user.save();
-        return res
-          .status(201)
-          .send({ message: "User registered and auto-verified (SMTP not configured)" });
+      console.error(
+        `[registerController] Failed to send verification email to ${user.email}:`,
+        emailError.message || emailError
+      );
+
+      // Do not silently mark as verified if email delivery fails.
+      // Clean up token and unverified user so they can retry registration.
+      try {
+        await Token.deleteOne({ _id: token._id });
+        await User.deleteOne({ _id: user._id });
+      } catch (cleanupErr) {
+        console.error(
+          "[registerController] Error cleaning up user record after email failure:",
+          cleanupErr.message || cleanupErr
+        );
       }
+
+      return res
+        .status(500)
+        .send({ message: "Unable to send verification email. Please try again later." });
     }
 
     res
