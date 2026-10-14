@@ -9,16 +9,25 @@ const VerifyEmail = () => {
   const { id, token } = useParams();
   const [loading, setLoading] = useState(false);
   const [verifiedSuccess, setVerifiedSuccess] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const { isAuthenticated, checkAuth } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
     checkAuth();
     if (isAuthenticated) navigate("/");
-  }, [isAuthenticated, navigate, checkAuth]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     let isMounted = true;
+
+    if (!id || !token) {
+      setVerifiedSuccess(false);
+      setStatusMessage("Invalid verification link parameters.");
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -26,6 +35,7 @@ const VerifyEmail = () => {
         if (isMounted) {
           toast.success(response.data.message || "Email verified! ✨");
           setVerifiedSuccess(true);
+          setStatusMessage("Your email has been verified! You're ready to jump into Chatora.");
         }
       } catch (error) {
         if (!isMounted) return;
@@ -33,9 +43,12 @@ const VerifyEmail = () => {
         if (errMsg.toLowerCase().includes("already verified")) {
           toast.success("Account is already verified! You can log in. ✨");
           setVerifiedSuccess(true);
+          setStatusMessage("Your email address is already verified. You can log in right away!");
         } else {
           setVerifiedSuccess(false);
-          toast.error(errMsg || "Verification failed");
+          const failMsg = errMsg || "Verification failed. The link may be expired or invalid.";
+          setStatusMessage(failMsg);
+          toast.error(failMsg);
         }
       } finally {
         if (isMounted) {
@@ -43,6 +56,7 @@ const VerifyEmail = () => {
         }
       }
     };
+
     fetchData();
     return () => {
       isMounted = false;
@@ -75,52 +89,87 @@ const VerifyEmail = () => {
             </div>
           ) : (
             <div className="py-4">
-              <div className="w-16 h-16 rounded-3xl bg-emerald-50 border border-emerald-200 text-emerald-500 flex items-center justify-center mx-auto mb-5 shadow-sweet-sm">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2.5}
-                  stroke="currentColor"
-                  className="w-8 h-8"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="m4.5 12.75 6 6 9-13.5"
-                  />
-                </svg>
-              </div>
-
-              <h2 className="text-2xl font-extrabold text-plum-900 mb-2 tracking-tight">
-                Account Status
-              </h2>
-              <p className="text-sm text-plum-600 mb-6 max-w-xs mx-auto font-medium">
-                {verifiedSuccess
-                  ? "Your email has been verified! You're ready to jump into Chatora."
-                  : "Verification request completed. Check status or sign in."}
-              </p>
-
-              {!isAuthenticated && (
-                <Link
-                  to={"/login"}
-                  className="inline-flex items-center justify-center w-full px-6 py-3.5 text-sm font-extrabold text-plum-900 bg-gradient-to-r from-[#FFB3C6] via-[#FFBDC7] to-[#FFCCBC] border border-chatora-pink/30 rounded-2xl shadow-sm hover:shadow-sweet-pink hover:from-[#FFA3BA] hover:to-[#FFBDAC] transition-all active:scale-95"
-                >
-                  Proceed to Login 💬
+              <div
+                className={`w-16 h-16 rounded-3xl border flex items-center justify-center mx-auto mb-5 shadow-sweet-sm ${
+                  verifiedSuccess
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-500"
+                    : "bg-rose-50 border-rose-200 text-rose-500"
+                }`}
+              >
+                {verifiedSuccess ? (
                   <svg
-                    className="w-4 h-4 ml-2"
+                    xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
                     strokeWidth={2.5}
                     stroke="currentColor"
+                    className="w-8 h-8"
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+                      d="m4.5 12.75 6 6 9-13.5"
                     />
                   </svg>
-                </Link>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2.5}
+                    stroke="currentColor"
+                    className="w-8 h-8"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 7.5h.008v.008H12v-.008Z"
+                    />
+                  </svg>
+                )}
+              </div>
+
+              <h2 className="text-2xl font-extrabold text-plum-900 mb-2 tracking-tight">
+                {verifiedSuccess ? "Account Verified ✨" : "Verification Status"}
+              </h2>
+              <p className="text-sm text-plum-600 mb-6 max-w-xs mx-auto font-medium">
+                {statusMessage ||
+                  (verifiedSuccess
+                    ? "Your email has been verified! You're ready to jump into Chatora."
+                    : "Verification request completed. Check status or sign in.")}
+              </p>
+
+              {!isAuthenticated && (
+                <div className="space-y-3">
+                  <Link
+                    to={"/login"}
+                    className="inline-flex items-center justify-center w-full px-6 py-3.5 text-sm font-extrabold text-plum-900 bg-gradient-to-r from-[#FFB3C6] via-[#FFBDC7] to-[#FFCCBC] border border-chatora-pink/30 rounded-2xl shadow-sm hover:shadow-sweet-pink hover:from-[#FFA3BA] hover:to-[#FFBDAC] transition-all active:scale-95"
+                  >
+                    Proceed to Login 💬
+                    <svg
+                      className="w-4 h-4 ml-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2.5}
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"
+                      />
+                    </svg>
+                  </Link>
+
+                  {!verifiedSuccess && (
+                    <Link
+                      to={"/register"}
+                      className="inline-flex items-center justify-center w-full px-6 py-2.5 text-xs font-bold text-plum-600 bg-cream-100 hover:bg-cream-200 border border-border-subtle rounded-xl transition-all"
+                    >
+                      Try Registering Again
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
           )}

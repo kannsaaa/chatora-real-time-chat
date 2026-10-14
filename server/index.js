@@ -18,7 +18,7 @@ connection();
 app.use(express.json());
 app.use(cookieParser());
 
-const allowedOrigins = [
+const rawOrigins = [
   "http://localhost:5173",
   "http://localhost:4000",
   "https://swifty-chatty-appy.onrender.com",
@@ -27,14 +27,20 @@ const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.CLIENT_URL,
   process.env.BASE_URL,
-].filter(Boolean);
+];
+
+const allowedOrigins = rawOrigins
+  .filter(Boolean)
+  .map((origin) => origin.trim().replace(/\/+$/, ""));
 
 const corsOptions = {
   origin: (origin, callback) => {
-    if (allowedOrigins.includes(origin) || !origin) {
+    if (!origin) return callback(null, true);
+    const normalizedOrigin = origin.trim().replace(/\/+$/, "");
+    if (allowedOrigins.includes(normalizedOrigin)) {
       callback(null, true);
     } else {
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error(`Not allowed by CORS: ${origin}`));
     }
   },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
@@ -43,6 +49,24 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Health check endpoints for deployment monitoring and testing
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "chatora-backend",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
+app.get("/api/health", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    service: "chatora-backend",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Direct verification endpoints (handles clicks pointing to backend or frontend route paths)
 app.get("/users/:id/verify/:token", verifyEmail);

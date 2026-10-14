@@ -3,14 +3,18 @@ const { User } = require("../models/userModel.js");
 const { Token } = require("../models/tokenModel.js");
 
 const getFrontendBase = () => {
-  return (
+  const base = (
     process.env.FRONTEND_URL ||
     process.env.CLIENT_URL ||
     process.env.BASE_URL ||
+    process.env.APP_URL ||
     "http://localhost:5173"
   )
     .trim()
+    .replace(/\/+users\/?$/, "")
     .replace(/\/+$/, "");
+
+  return base;
 };
 
 const sendHtmlResponse = (res, statusCode, title, message, actionText, actionUrl) => {

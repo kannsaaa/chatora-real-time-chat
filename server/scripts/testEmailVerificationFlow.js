@@ -71,10 +71,13 @@ async function runTest() {
   app.use(cookieParser());
 
   // Mount backend routes matching server/index.js
+  app.get("/health", (req, res) => res.status(200).json({ status: "ok", service: "chatora-backend" }));
+  app.get("/api/health", (req, res) => res.status(200).json({ status: "ok", service: "chatora-backend" }));
   app.post("/api/user/register", registerController);
   app.post("/api/user/login", loginController);
   app.get("/api/user/:id/verify/:token", verifyEmail);
   app.get("/users/:id/verify/:token", verifyEmail); // direct route alias
+  app.get("/api/users/:id/verify/:token", verifyEmail); // direct route alias
   app.get("/api/user/profile", profileController.profileController);
 
   const server = app.listen(TEST_PORT, "0.0.0.0");
@@ -85,6 +88,20 @@ async function runTest() {
   const testPassword = "Password123!";
 
   try {
+    // 2.5 Test Health Check Endpoints
+    console.log("\n[2.5/8] Verifying /health and /api/health endpoints...");
+    const healthRes = await makeRequest({
+      hostname: "127.0.0.1",
+      port: TEST_PORT,
+      path: "/health",
+      method: "GET",
+    });
+    console.log(`  /health Status: ${healthRes.statusCode} | Body:`, healthRes.data);
+    if (healthRes.statusCode !== 200 || healthRes.data?.status !== "ok") {
+      throw new Error(`Health check failed: ${JSON.stringify(healthRes.data)}`);
+    }
+    console.log("  ✓ /health endpoint returned 200 OK");
+
     // 3. Attempt Login Before Registration
     console.log("\n[3/8] Attempting login before registration...");
     const preRegLogin = await makeRequest(
