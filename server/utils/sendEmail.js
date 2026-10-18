@@ -1,5 +1,5 @@
 // utils/sendEmail.js
-const { Resend } = require("resend");
+const { google } = require("googleapis");
 
 /**
  * Generates an HTML verification email template conforming to Chatora's visual style.
@@ -62,24 +62,149 @@ const getVerificationHtml = (url) => {
 };
 
 /**
- * Sends an email using Resend HTTPS API.
+ * Splits a base64 string into RFC 2045 standard 76-character lines.
+ * @param {string} b64 - Base64 string
+ * @returns {string} Wrapped base64 string
+ */
+const wrapBase64 = (b64) => {
+  if (!b64) return "";
+  return (b64.match(/.{1,76}/g) || []).join("\r\n");
+};
+
+/**
+ * Builds an RFC 2822 MIME message and encodes it as a base64url string for Gmail API.
+ * @param {Object} options
+ * @param {string} options.from - Sender address (e.g. "Chatora <sender@gmail.com>")
+ * @param {string} options.to - Recipient email
+ * @param {string} options.subject - Subject line
+ * @param {string} options.text - Plain text content
+ * @param {string} [options.html] - HTML content
+ * @returns {string} base64url-encoded MIME message
+ */
+const buildMimeMessage = ({ from, to, subject, text, html }) => {
+  const boundary = `__chatora_boundary_${Date.now()}_${Math.random().toString(36).substring(2)}__`;
+  // RFC 2047 encoded subject to safely handle Unicode/emojis in subject lines
+  const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, "utf-8").toString("base64")}?=`;
+
+  const headers = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${encodedSubject}`,
+    "MIME-Version: 1.0",
+  ];
+
+  let body = "";
+
+  if (html) {
+    headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
+    const plainPart = [
+      `--${boundary}`,
+      'Content-Type: text/plain; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrapBase64(Buffer.from(text || "", "utf-8").toString("base64")),
+    ].join("\r\n");
+
+    const htmlPart = [
+      `--${boundary}`,
+      'Content-Type: text/html; charset="UTF-8"',
+      "Content-Transfer-Encoding: base64",
+      "",
+      wrapBase64(Buffer.from(html, "utf-8").toString("base64")),
+      `--${boundary}--`,
+    ].join("\r\n");
+
+    body = `${plainPart}\r\n${htmlPart}`;
+  } else {
+    headers.push('Content-Type: text/plain; charset="UTF-8"');
+    headers.push("Content-Transfer-Encoding: base64");
+    body = wrapBase64(Buffer.from(text || "", "utf-8").toString("base64"));
+  }
+
+  const rawMime = `${headers.join("\r\n")}\r\n\r\n${body}`;
+  return Buffer.from(rawMime, "utf-8").toString("base64url");
+};
+
+/**
+ * Formats sender address with display name if not already present.
+ * @param {string} sender - Sender email or formatted string
+ * @returns {string} Formatted sender header
+ */
+const formatSender = (sender) => {
+  const trimmed = (sender || "").trim();
+  if (!trimmed) return "Chatora";
+  if (trimmed.includes("<") && trimmed.includes(">")) {
+    return trimmed;
+  }
+  return `Chatora <${trimmed}>`;
+};
+
+// Cached OAuth2 client instance to preserve active tokens and allow automatic refresh
+let cachedOAuth2Client = null;
+let cachedCredentialsKey = "";
+
+/**
+ * Initializes and returns the google.auth.OAuth2 client with refresh token credentials.
+ * @param {string} clientId
+ * @param {string} clientSecret
+ * @param {string} refreshToken
+ * @returns {google.auth.OAuth2}
+ */
+const getOAuth2Client = (clientId, clientSecret, refreshToken) => {
+  const credentialsKey = `${clientId}:${clientSecret}:${refreshToken}`;
+  if (cachedOAuth2Client && cachedCredentialsKey === credentialsKey) {
+    return cachedOAuth2Client;
+  }
+
+  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
+  oauth2Client.setCredentials({
+    refresh_token: refreshToken,
+  });
+
+  cachedOAuth2Client = oauth2Client;
+  cachedCredentialsKey = credentialsKey;
+  return oauth2Client;
+};
+
+/**
+ * Resets the cached OAuth2 client instance (useful for testing).
+ */
+const resetClient = () => {
+  cachedOAuth2Client = null;
+  cachedCredentialsKey = "";
+};
+
+/**
+ * Sends an email using Google Gmail API Node.js client (googleapis).
  * @param {string} email - Destination recipient email address
  * @param {string} subject - Email subject line
  * @param {string} text - Plaintext content or verification URL
  * @param {string} [customHtml] - Optional custom HTML content
+ * @returns {Promise<Object>} Gmail API response data
  */
-module.exports = async (email, subject, text, customHtml) => {
-  const apiKey = (process.env.RESEND_API_KEY || "").trim();
-  const isPlaceholderKey =
-    !apiKey ||
-    apiKey === "your_resend_api_key_here" ||
-    apiKey.toLowerCase() === "undefined";
+const sendEmail = async (email, subject, text, customHtml) => {
+  const clientId = (process.env.GMAIL_CLIENT_ID || "").trim();
+  const clientSecret = (process.env.GMAIL_CLIENT_SECRET || "").trim();
+  const refreshToken = (process.env.GMAIL_REFRESH_TOKEN || "").trim();
+  const senderEmail = (process.env.GMAIL_SENDER_EMAIL || "").trim();
 
-  // Safe development fallback: if no API key is configured locally
-  if (isPlaceholderKey) {
+  const isPlaceholder = (val, placeholder) =>
+    !val ||
+    val === placeholder ||
+    val.toLowerCase() === "undefined";
+
+  const isUnconfigured =
+    isPlaceholder(clientId, "your_gmail_client_id_here") ||
+    isPlaceholder(clientSecret, "your_gmail_client_secret_here") ||
+    isPlaceholder(refreshToken, "your_gmail_refresh_token_here") ||
+    isPlaceholder(senderEmail, "your_email@gmail.com") ||
+    isPlaceholder(senderEmail, "your_gmail_sender_email_here");
+
+  // Safe development fallback: if Gmail credentials are not configured locally
+  if (isUnconfigured) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        `[sendEmail] RESEND_API_KEY is not configured. Development mode: external email was not sent.`
+        `[sendEmail] Gmail API credentials (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL) are not fully configured. Development mode: external email was not sent.`
       );
       console.warn(`[sendEmail] Target: ${email} | Subject: "${subject}"`);
       if (text) {
@@ -89,16 +214,12 @@ module.exports = async (email, subject, text, customHtml) => {
     }
 
     console.error(
-      "[sendEmail] RESEND_API_KEY is missing or unconfigured in production environment."
+      "[sendEmail] Gmail API credentials are missing or unconfigured in production environment."
     );
     throw new Error("Email delivery service is not configured.");
   }
 
-  const fromEmail =
-    (process.env.RESEND_FROM_EMAIL || "").trim() ||
-    "Chatora <onboarding@resend.dev>";
-
-  // Determine plaintext and html contents
+  // Determine plaintext and HTML contents
   const isUrl =
     typeof text === "string" &&
     (text.startsWith("http://") || text.startsWith("https://"));
@@ -108,41 +229,59 @@ module.exports = async (email, subject, text, customHtml) => {
   const htmlContent =
     customHtml || (isUrl ? getVerificationHtml(text) : undefined);
 
+  const fromHeader = formatSender(senderEmail);
+
+  // Encode the MIME message for the Gmail API
+  const rawMessage = buildMimeMessage({
+    from: fromHeader,
+    to: email,
+    subject,
+    text: plainText,
+    html: htmlContent,
+  });
+
   try {
-    const resend = new Resend(apiKey);
-    const { data, error } = await resend.emails.send({
-      from: fromEmail,
-      to: email,
-      subject: subject,
-      text: plainText,
-      ...(htmlContent ? { html: htmlContent } : {}),
+    const oAuth2Client = getOAuth2Client(clientId, clientSecret, refreshToken);
+    const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
+
+    const response = await gmail.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw: rawMessage,
+      },
     });
 
-    if (error) {
-      console.error(`[sendEmail] Resend API error sending to ${email}:`, {
-        name: error.name,
-        message: error.message,
-        statusCode: error.statusCode,
-      });
-      throw new Error(
-        `Email delivery failed: ${error.message || "Resend API error"}`
-      );
-    }
-
     console.log(
-      `[sendEmail] Verification email delivered to ${email} (Message ID: ${data?.id})`
+      `[sendEmail] Verification email delivered to ${email} (Gmail Message ID: ${response.data?.id})`
     );
-    return data;
+    return response.data;
   } catch (err) {
-    if (err.message && err.message.startsWith("Email delivery failed")) {
-      throw err;
-    }
-    console.error(
-      `[sendEmail] Exception sending email to ${email}:`,
-      err.message || err
-    );
-    throw new Error(
-      `Email delivery failed: ${err.message || "Unknown error"}`
-    );
+    // Sanitize error logging: log status/code/message without leaking sensitive auth tokens/secrets
+    const errorStatus =
+      err.response?.status ||
+      err.status ||
+      err.code ||
+      "UNKNOWN_ERROR";
+    const errorMessage =
+      err.response?.data?.error?.message ||
+      err.response?.data?.error_description ||
+      err.message ||
+      "Gmail API request failed";
+
+    console.error(`[sendEmail] Gmail API error sending to ${email}:`, {
+      status: errorStatus,
+      message: errorMessage,
+    });
+
+    throw new Error(`Email delivery failed: ${errorMessage}`);
   }
 };
+
+// Export main sender function and testing utilities
+sendEmail.getVerificationHtml = getVerificationHtml;
+sendEmail.buildMimeMessage = buildMimeMessage;
+sendEmail.formatSender = formatSender;
+sendEmail.getOAuth2Client = getOAuth2Client;
+sendEmail.resetClient = resetClient;
+
+module.exports = sendEmail;
