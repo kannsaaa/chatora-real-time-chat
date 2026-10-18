@@ -82,7 +82,7 @@ const MessageInputForm = ({
           )}
 
           <div className="w-full flex items-center">
-            {!selectedGroupId && onOpenChaos && (
+            {onOpenChaos && (
               <button
                 type="button"
                 onClick={onOpenChaos}

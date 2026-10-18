@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const protect = require("../middleware/protect");
 const Friendship = require("../models/friendshipModel");
 const Block = require("../models/blockModel");
+const Group = require("../models/groupModel");
 
 // In-memory rate limiting map: userId -> [timestamp1, timestamp2, ...]
 const userRequestTimestamps = new Map();
@@ -296,7 +297,7 @@ const generateChaos = async (req, res) => {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const { mode, conversationUserId } = req.body;
+    const { mode, conversationUserId, groupId } = req.body;
     const ourUserId = userData._id;
 
     // 1. Validate mode
@@ -316,37 +317,55 @@ const generateChaos = async (req, res) => {
       });
     }
 
-    // 2. Validate conversationUserId
-    if (!conversationUserId || !mongoose.Types.ObjectId.isValid(conversationUserId)) {
-      return res.status(400).json({ message: "Invalid target user ID" });
+    // 2. Validate target: either groupId OR conversationUserId
+    if (groupId) {
+      if (!mongoose.Types.ObjectId.isValid(groupId)) {
+        return res.status(400).json({ message: "Invalid group ID" });
+      }
+      const group = await Group.findById(groupId);
+      if (!group) {
+        return res.status(404).json({ message: "Group not found" });
+      }
+      const isMember = (group.members || []).some(
+        (m) => m.toString() === ourUserId.toString()
+      );
+      if (!isMember) {
+        return res.status(403).json({ message: "You are not a member of this group" });
+      }
+    } else if (conversationUserId) {
+      if (!mongoose.Types.ObjectId.isValid(conversationUserId)) {
+        return res.status(400).json({ message: "Invalid target user ID" });
+      }
+
+      if (ourUserId.toString() === conversationUserId.toString()) {
+        return res.status(400).json({ message: "Cannot use Chaos Mode with yourself" });
+      }
+
+      // Security: Check Block status
+      const isBlocked = await Block.findOne({
+        $or: [
+          { blocker: ourUserId, blocked: conversationUserId },
+          { blocker: conversationUserId, blocked: ourUserId },
+        ],
+      });
+      if (isBlocked) {
+        return res.status(403).json({ message: "Cannot use Chaos Mode with blocked user" });
+      }
+
+      // Security: Check Friendship status
+      const canonicalPair = Friendship.getCanonicalPair(ourUserId, conversationUserId);
+      const friendship = await Friendship.findOne({
+        canonicalPair,
+        status: "ACCEPTED",
+      });
+      if (!friendship) {
+        return res.status(403).json({ message: "You can only use Chaos Mode with friends." });
+      }
+    } else {
+      return res.status(400).json({ message: "Target user ID or group ID is required" });
     }
 
-    if (ourUserId.toString() === conversationUserId.toString()) {
-      return res.status(400).json({ message: "Cannot use Chaos Mode with yourself" });
-    }
-
-    // 3. Security: Check Block status
-    const isBlocked = await Block.findOne({
-      $or: [
-        { blocker: ourUserId, blocked: conversationUserId },
-        { blocker: conversationUserId, blocked: ourUserId },
-      ],
-    });
-    if (isBlocked) {
-      return res.status(403).json({ message: "Cannot use Chaos Mode with blocked user" });
-    }
-
-    // 4. Security: Check Friendship status
-    const canonicalPair = Friendship.getCanonicalPair(ourUserId, conversationUserId);
-    const friendship = await Friendship.findOne({
-      canonicalPair,
-      status: "ACCEPTED",
-    });
-    if (!friendship) {
-      return res.status(403).json({ message: "You can only use Chaos Mode with friends." });
-    }
-
-    // 5. Rate limiting
+    // 3. Rate limiting
     if (!checkRateLimit(ourUserId)) {
       return res.status(429).json({
         message: "Whoa 😭 Slow down. Give Chaos a second.",

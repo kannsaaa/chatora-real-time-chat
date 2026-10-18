@@ -12,6 +12,12 @@
   }
 }
 
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 /* Custom sweet warm scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

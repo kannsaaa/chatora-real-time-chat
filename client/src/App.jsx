@@ -18,7 +18,12 @@ import { useEffect } from "react";
 import Profile from "./components/Profile";
 import People from "./pages/People";
 import Friends from "./pages/Friends";
+import MobileTestPreview from "./pages/MobileTestPreview";
 import { baseUrl } from "../apiConfig";
+
+// Ensure axios defaults are configured before any component or hook mounts
+axios.defaults.baseURL = baseUrl;
+axios.defaults.withCredentials = true;
 
 const Layout = () => {
   const { isAuthenticated, checkAuth, loading } = useAuth();
@@ -49,6 +54,10 @@ const Layout = () => {
 };
 
 const router = createBrowserRouter([
+  {
+    path: "/dev/mobile-test",
+    element: <MobileTestPreview />,
+  },
   {
     path: "/",
     element: <Layout />,

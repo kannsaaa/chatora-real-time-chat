@@ -783,7 +783,7 @@ const ChatHome = () => {
   const isAnyChatActive = Boolean(selectedUserId || selectedGroupId);
 
   return (
-    <div className="flex min-h-screen bg-background relative overflow-hidden">
+    <div className="flex h-[100dvh] max-h-[100dvh] bg-background relative overflow-hidden">
       <Nav />
 
       {/* Conversations and Groups List Sidebar */}
@@ -808,7 +808,7 @@ const ChatHome = () => {
       <section
         className={`${
           !isAnyChatActive ? "hidden md:flex" : "flex"
-        } flex-1 relative flex-col bg-background h-screen overflow-hidden z-10`}
+        } flex-1 flex flex-col bg-background h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden relative z-10`}
       >
         {!isAnyChatActive ? (
           <div className="flex-1 relative flex flex-col items-center justify-center text-center p-8 select-none bg-cream-50/60">
@@ -871,21 +871,19 @@ const ChatHome = () => {
               onOpenChaos={() => setIsChaosOpen(true)}
             />
 
-            <div className="flex-1 overflow-y-auto mt-16 pb-24 md:pb-20">
-              <ChatMessages
-                messages={messages}
-                userDetails={userDetails}
-                selectedUserId={selectedUserId}
-                selectedGroupId={selectedGroupId}
-                onDeleteMessageForMe={handleDeleteMessageForMe}
-                onUnsendMessage={handleUnsendMessage}
-                onReply={(msg) => setReplyingTo(msg)}
-                onSayHi={() => setNewMessage("Hey! 👋")}
-              />
-            </div>
+            <ChatMessages
+              messages={messages}
+              userDetails={userDetails}
+              selectedUserId={selectedUserId}
+              selectedGroupId={selectedGroupId}
+              onDeleteMessageForMe={handleDeleteMessageForMe}
+              onUnsendMessage={handleUnsendMessage}
+              onReply={(msg) => setReplyingTo(msg)}
+              onSayHi={() => setNewMessage("Hey! 👋")}
+            />
 
             {/* Chat Footer / Input area */}
-            <div className="absolute w-full bottom-0 bg-white/95 backdrop-blur-md border-t border-chatora-border z-20 pb-16 md:pb-0">
+            <div className="flex-shrink-0 w-full bg-white/95 backdrop-blur-md border-t border-chatora-border z-20 pb-16 md:pb-0">
               {Boolean(selectedGroupId) || relationshipStatus === "FRIENDS" ? (
                 <MessageInputForm
                   newMessage={newMessage}
@@ -1004,12 +1002,15 @@ const ChatHome = () => {
         isOpen={isChaosOpen}
         onClose={() => setIsChaosOpen(false)}
         selectedUserId={selectedUserId}
+        selectedGroupId={selectedGroupId}
         partnerName={
-          conversations.find((c) => String(c.userId) === String(selectedUserId))
-            ?.username ||
-          allPeople.find((p) => String(p._id) === String(selectedUserId))
-            ?.username ||
-          "Friend"
+          selectedGroupId
+            ? currentGroup?.name || "Group"
+            : conversations.find((c) => String(c.userId) === String(selectedUserId))
+                ?.username ||
+              allPeople.find((p) => String(p._id) === String(selectedUserId))
+                ?.username ||
+              "Friend"
         }
         onSendToChat={(text) => sendMessage(null, text)}
       />

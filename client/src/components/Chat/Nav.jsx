@@ -11,7 +11,7 @@ const Nav = ({ pendingRequestsCount }) => {
   const [internalPendingCount, setInternalPendingCount] = useState(0);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !location.pathname.startsWith("/dev/")) {
       navigate("/login");
       return;
     }

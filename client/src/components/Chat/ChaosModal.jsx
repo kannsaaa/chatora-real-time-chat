@@ -59,6 +59,7 @@ const ChaosModal = ({
   isOpen,
   onClose,
   selectedUserId,
+  selectedGroupId = null,
   partnerName = "Friend",
   onSendToChat,
 }) => {
@@ -96,16 +97,19 @@ const ChaosModal = ({
   };
 
   const fetchChaosContent = async (modeId) => {
-    if (!selectedUserId) return;
+    if (!selectedUserId && !selectedGroupId) return;
     setIsLoading(true);
     setErrorMessage(null);
     setSelectedQuizAnswer(null);
 
     try {
-      const res = await axios.post("/api/chaos/generate", {
-        mode: modeId,
-        conversationUserId: selectedUserId,
-      });
+      const payload = { mode: modeId };
+      if (selectedGroupId) {
+        payload.groupId = selectedGroupId;
+      } else {
+        payload.conversationUserId = selectedUserId;
+      }
+      const res = await axios.post("/api/chaos/generate", payload);
       setChaosData(res.data);
     } catch (err) {
       console.error("Chaos generation failed:", err);
