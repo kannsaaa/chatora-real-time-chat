@@ -335,15 +335,45 @@ const Contact = ({
                 </span>
               );
             }
+            if (noMessagesYet) {
+              return (
+                <span
+                  className={`text-xs truncate italic ${
+                    isSelected
+                      ? "text-chatora-pink font-semibold"
+                      : "text-plum-400 font-medium"
+                  }`}
+                >
+                  No messages yet
+                </span>
+              );
+            }
+            if (userHandle) {
+              return (
+                <span
+                  className={`text-xs truncate font-medium ${
+                    isSelected
+                      ? "text-chatora-pink"
+                      : isUnread
+                      ? "text-plum-700 font-bold"
+                      : "text-plum-600"
+                  }`}
+                >
+                  @{userHandle}
+                </span>
+              );
+            }
             return (
               <span
-                className={`text-xs truncate italic ${
+                className={`text-xs truncate ${
                   isSelected
                     ? "text-chatora-pink font-semibold"
-                    : "text-plum-400 font-medium"
+                    : isOnline
+                    ? "text-plum-700 font-medium"
+                    : "text-plum-600 font-medium"
                 }`}
               >
-                No messages yet
+                {isOnline ? "Active now" : "Offline"}
               </span>
             );
           })()}

@@ -132,7 +132,7 @@ const ChatHome = () => {
   // Fetch conversations from backend
   const fetchConversations = async () => {
     try {
-      const res = await axios.get("/api/conversations");
+      const res = await axios.get("/api/conversations?includeFriends=true");
       if (Array.isArray(res.data)) {
         setConversations(res.data);
       }
@@ -823,6 +823,7 @@ const ChatHome = () => {
         allPeople={allPeople}
         conversations={conversations}
         friends={friends}
+        currentMessages={messages}
         onTogglePin={handleTogglePin}
         onToggleMute={handleToggleMute}
         onToggleUnread={handleToggleUnread}

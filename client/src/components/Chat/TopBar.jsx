@@ -47,7 +47,7 @@ const TopBar = ({
     (p) => String(p._id) === String(selectedUserId)
   );
   const convUser = (conversations || []).find(
-    (c) => String(c.userId) === String(selectedUserId)
+    (c) => String(c.userId || c._id) === String(selectedUserId)
   );
   const friendUser = (friends || []).find(
     (f) => String(f._id || f.userId) === String(selectedUserId)
@@ -55,7 +55,10 @@ const TopBar = ({
 
   const fullName = isGroup
     ? currentGroup?.name || "Group Chat"
-    : (friendUser
+    : (convUser
+        ? `${convUser.firstName || ""} ${convUser.lastName || ""}`.trim() || convUser.username
+        : "") ||
+      (friendUser
         ? `${friendUser.firstName || ""} ${friendUser.lastName || ""}`.trim() || friendUser.username
         : "") ||
       (offlineUser
@@ -64,15 +67,13 @@ const TopBar = ({
       (directoryUser
         ? `${directoryUser.firstName || ""} ${directoryUser.lastName || ""}`.trim()
         : "") ||
-      (convUser
-        ? `${convUser.firstName || ""} ${convUser.lastName || ""}`.trim() || convUser.username
-        : "") ||
       onlineUser?.username ||
       "User";
 
   const usernameHandle = isGroup
     ? null
-    : friendUser?.username ||
+    : convUser?.username ||
+      friendUser?.username ||
       directoryUser?.username ||
       offlineUser?.username ||
       onlineUser?.userHandle ||
@@ -80,7 +81,8 @@ const TopBar = ({
 
   const avatarLink = isGroup
     ? currentGroup?.avatar || "👥"
-    : friendUser?.avatarLink ||
+    : convUser?.avatarLink ||
+      friendUser?.avatarLink ||
       directoryUser?.avatarLink ||
       offlineUser?.avatarLink ||
       onlineUser?.avatarLink ||

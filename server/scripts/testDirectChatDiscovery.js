@@ -308,6 +308,130 @@ async function runTests() {
 
   recordPass("6. Group chats remain unaffected and separated from direct chats");
 
+  // -------------------------------------------------------------
+  // TEST 7: REGRESSION TEST: Friend with existing message history must not be displayed as noMessagesYet
+  // -------------------------------------------------------------
+  // 1. Send a group message (which sets recipient: null in DB)
+  // This verifies that group messages do not cause getConversations to crash on null recipient.
+  const groupMsgRes = await request(`/api/groups/${createdGroup._id}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ text: "Hello team in group!" }),
+  }, userACookie);
+  assert.strictEqual(groupMsgRes.status, 201, "Alice sent group message successfully");
+
+  // 2. Register Dana (Friend D) who has accepted friendship with Alice but ZERO messages
+  const randD = Math.random().toString(36).substring(2, 7);
+  const emailD = `discovery_d_${randD}@test.com`;
+  await request("/api/user/register", {
+    method: "POST",
+    body: JSON.stringify({
+      firstName: "Dana",
+      lastName: "Nomessages",
+      username: `dana_${randD}`,
+      email: emailD,
+      password: "Password123!",
+    }),
+  });
+  const usersCollection = mongoose.connection.db.collection("users");
+  await usersCollection.updateOne({ email: emailD }, { $set: { verified: true } });
+  const loginD = await request("/api/user/login", {
+    method: "POST",
+    body: JSON.stringify({ email: emailD, password: "Password123!" }),
+  });
+  const userDCookie = loginD.cookie;
+  const profD = await request("/api/user/profile", {}, userDCookie);
+  const userD = profD.data;
+
+  // Establish friendship Alice <-> Dana
+  await request(`/api/friends/request/${userD._id}`, { method: "POST" }, userACookie);
+  await request(`/api/friends/request/${userA._id}/accept`, { method: "POST" }, userDCookie);
+
+  // 3. Query direct conversations via API
+  const convsAfterGroupMsg = await request("/api/conversations?includeFriends=true", {}, userACookie);
+  assert.strictEqual(convsAfterGroupMsg.status, 200, "getConversations succeeds with HTTP 200 after group messages");
+
+  // Bob (friend with message history) MUST NOT have noMessagesYet: true
+  const bobAfterGroupMsg = convsAfterGroupMsg.data.find((c) => String(c.userId) === String(userB._id));
+  assert.ok(bobAfterGroupMsg, "Bob exists in direct conversations");
+  assert.strictEqual(bobAfterGroupMsg.noMessagesYet, false, "Bob (with messages) MUST have noMessagesYet: false");
+  assert.ok(bobAfterGroupMsg.lastMessage, "Bob MUST have lastMessage object populated");
+  assert.ok(bobAfterGroupMsg.lastMessage.text.length > 0, "Bob lastMessage.text must not be empty");
+  assert.ok(bobAfterGroupMsg.lastMessage.createdAt, "Bob lastMessage must have createdAt timestamp");
+
+  // Charlie (friend who received message in test 4) MUST NOT have noMessagesYet: true
+  const charlieAfterGroupMsg = convsAfterGroupMsg.data.find((c) => String(c.userId) === String(userC._id));
+  assert.ok(charlieAfterGroupMsg, "Charlie exists in direct conversations");
+  assert.strictEqual(charlieAfterGroupMsg.noMessagesYet, false, "Charlie (with message from test 4) MUST have noMessagesYet: false");
+  assert.ok(charlieAfterGroupMsg.lastMessage?.text, "Charlie has lastMessage populated");
+
+  // Dana (friend with NO messages) MUST have noMessagesYet: true
+  const danaAfterGroupMsg = convsAfterGroupMsg.data.find((c) => String(c.userId) === String(userD._id));
+  assert.ok(danaAfterGroupMsg, "Dana exists in direct conversations");
+  assert.strictEqual(danaAfterGroupMsg.noMessagesYet, true, "Dana (with NO messages) MUST have noMessagesYet: true");
+  assert.strictEqual(danaAfterGroupMsg.lastMessage, null, "Dana lastMessage must be null");
+
+  // 4. Test client-side merge simulation from OnlineUserList.jsx
+  const friendsListRes = await request("/api/friends", {}, userACookie);
+  assert.strictEqual(friendsListRes.status, 200, "GET /api/friends returns 200");
+  const friendsFromApi = friendsListRes.data;
+
+  // Run the exact merge logic from OnlineUserList.jsx
+  const getContactId = (item) => String(item?.userId || item?._id || "");
+  const convMap = new Map();
+  for (const c of convsAfterGroupMsg.data || []) {
+    const id = getContactId(c);
+    if (!id) continue;
+    const existing = convMap.get(id);
+    if (!existing || (c.lastMessage && !existing.lastMessage)) {
+      convMap.set(id, { ...c, _id: id, userId: id });
+    }
+  }
+
+  const friendsWithoutConvs = [];
+  for (const f of friendsFromApi || []) {
+    const fId = getContactId(f);
+    if (!fId || convMap.has(fId)) continue;
+    friendsWithoutConvs.push({
+      _id: fId,
+      userId: fId,
+      noMessagesYet: true,
+      lastMessage: null,
+    });
+  }
+
+  const allConvEntries = Array.from(convMap.values());
+  const existingWithMessages = allConvEntries.filter(
+    (c) => !c.noMessagesYet && Boolean(c.lastMessage && (c.lastMessage.text || c.lastMessage.isUnsent))
+  );
+  const convsWithoutMessages = allConvEntries.filter(
+    (c) => c.noMessagesYet || !c.lastMessage || (!c.lastMessage.text && !c.lastMessage.isUnsent)
+  );
+  const mergedActiveConversations = [
+    ...existingWithMessages,
+    ...convsWithoutMessages,
+    ...friendsWithoutConvs.filter(
+      (f) => !convsWithoutMessages.some((c) => getContactId(c) === getContactId(f))
+    ),
+  ];
+
+  // Assert Bob is in existingWithMessages and NOT marked noMessagesYet
+  const bobMerged = mergedActiveConversations.find((c) => getContactId(c) === String(userB._id));
+  assert.ok(bobMerged, "Bob exists in merged active conversations");
+  assert.strictEqual(bobMerged.noMessagesYet, false, "Bob has noMessagesYet: false in merged list");
+  assert.ok(bobMerged.lastMessage && bobMerged.lastMessage.text, "Bob has lastMessage in merged list");
+
+  // Assert Charlie is in existingWithMessages and NOT marked noMessagesYet
+  const charlieMerged = mergedActiveConversations.find((c) => getContactId(c) === String(userC._id));
+  assert.ok(charlieMerged, "Charlie exists in merged active conversations");
+  assert.strictEqual(charlieMerged.noMessagesYet, false, "Charlie has noMessagesYet: false in merged list");
+
+  // Assert Dana is marked noMessagesYet: true
+  const danaMerged = mergedActiveConversations.find((c) => getContactId(c) === String(userD._id));
+  assert.ok(danaMerged, "Dana exists in merged active conversations");
+  assert.strictEqual(danaMerged.noMessagesYet, true, "Dana has noMessagesYet: true in merged list");
+
+  recordPass("7. Friend with existing message history must not be displayed as noMessagesYet (regression verified)");
+
   console.log("==================================================");
   console.log(`ALL DIRECT CHAT DISCOVERY TESTS PASSED: ${passed}/${total}`);
   console.log("==================================================");

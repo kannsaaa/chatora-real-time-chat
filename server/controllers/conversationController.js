@@ -15,21 +15,35 @@ const getConversations = async (req, res) => {
     }
 
     const ourUserId = userData._id;
+    const ourObjectId = mongoose.Types.ObjectId.isValid(ourUserId)
+      ? new mongoose.Types.ObjectId(ourUserId)
+      : ourUserId;
+    const ourIdStr = ourUserId.toString();
 
-    // 1. Find all distinct users that ourUserId has exchanged non-deleted messages with
+    // 1. Find all distinct users that ourUserId has exchanged non-deleted direct messages with.
+    // Explicitly exclude group messages (which have recipient: null).
     const activeMessages = await Message.find({
-      $or: [{ sender: ourUserId }, { recipient: ourUserId }],
-      deletedFor: { $ne: ourUserId },
+      group: null,
+      recipient: { $ne: null },
+      $or: [
+        { sender: ourObjectId },
+        { recipient: ourObjectId },
+        { sender: ourUserId },
+        { recipient: ourUserId },
+      ],
+      deletedFor: { $nin: [ourObjectId, ourUserId] },
     })
       .sort({ createdAt: -1 })
       .lean();
 
-    const partnerIdMap = new Map(); // partnerId -> latestMessage
+    const partnerIdMap = new Map(); // partnerId (string) -> latestMessage
     for (const msg of activeMessages) {
-      const partnerId =
-        msg.sender.toString() === ourUserId.toString()
-          ? msg.recipient.toString()
-          : msg.sender.toString();
+      if (!msg.sender || !msg.recipient) continue;
+      const senderStr = msg.sender.toString();
+      const recipientStr = msg.recipient.toString();
+
+      const partnerId = senderStr === ourIdStr ? recipientStr : senderStr;
+      if (!partnerId || partnerId === ourIdStr) continue;
 
       if (!partnerIdMap.has(partnerId)) {
         partnerIdMap.set(partnerId, msg);
@@ -38,11 +52,12 @@ const getConversations = async (req, res) => {
 
     // 2. Also find any conversations that have preferences (e.g. pinned)
     const preferences = await ConversationPreference.find({
-      user: ourUserId,
+      $or: [{ user: ourObjectId }, { user: ourUserId }],
     }).lean();
 
     const prefMap = new Map();
     for (const p of preferences) {
+      if (!p.conversationWith) continue;
       const pId = p.conversationWith.toString();
       prefMap.set(pId, p);
       if (p.isPinned && !partnerIdMap.has(pId)) {
@@ -54,8 +69,14 @@ const getConversations = async (req, res) => {
     const partnerIds = Array.from(partnerIdMap.keys()).filter((id) =>
       mongoose.Types.ObjectId.isValid(id)
     );
+    const partnerObjectIds = partnerIds.map((id) => new mongoose.Types.ObjectId(id));
 
-    const users = await User.find({ _id: { $in: partnerIds } })
+    const users = await User.find({
+      $or: [
+        { _id: { $in: partnerObjectIds } },
+        { _id: { $in: partnerIds } },
+      ],
+    })
       .select("_id firstName lastName username avatarLink bio")
       .lean();
 
@@ -72,10 +93,11 @@ const getConversations = async (req, res) => {
 
       const latestMsg = partnerIdMap.get(partnerId);
       const pref = prefMap.get(partnerId);
+      const pIdStr = partnerUser._id.toString();
 
       conversations.push({
-        _id: partnerUser._id,
-        userId: partnerUser._id,
+        _id: pIdStr,
+        userId: pIdStr,
         firstName: partnerUser.firstName,
         lastName: partnerUser.lastName,
         username: partnerUser.username,
@@ -85,13 +107,14 @@ const getConversations = async (req, res) => {
           ? {
               text: latestMsg.isUnsent ? "" : latestMsg.text,
               isUnsent: Boolean(latestMsg.isUnsent),
-              sender: latestMsg.sender,
+              sender: latestMsg.sender.toString(),
               createdAt: latestMsg.createdAt,
             }
           : null,
         isPinned: Boolean(pref?.isPinned),
         isMuted: Boolean(pref?.isMuted),
         isUnread: Boolean(pref?.isUnread),
+        noMessagesYet: !latestMsg,
         updatedAt: latestMsg?.createdAt || pref?.updatedAt || partnerUser.updatedAt,
       });
     }
@@ -110,41 +133,52 @@ const getConversations = async (req, res) => {
       const Block = require("../models/blockModel");
 
       const blocks = await Block.find({
-        $or: [{ blocker: ourUserId }, { blocked: ourUserId }],
+        $or: [
+          { blocker: ourObjectId },
+          { blocked: ourObjectId },
+          { blocker: ourUserId },
+          { blocked: ourUserId },
+        ],
       }).lean();
       const blockedUserIds = new Set(
-        blocks.map((b) =>
-          b.blocker.toString() === ourUserId.toString()
-            ? b.blocked.toString()
-            : b.blocker.toString()
-        )
+        blocks.map((b) => {
+          const bBlocker = b.blocker.toString();
+          const bBlocked = b.blocked.toString();
+          return bBlocker === ourIdStr ? bBlocked : bBlocker;
+        })
       );
 
       const friendships = await Friendship.find({
-        $or: [{ requester: ourUserId }, { recipient: ourUserId }],
+        $or: [
+          { requester: ourObjectId },
+          { recipient: ourObjectId },
+          { requester: ourUserId },
+          { recipient: ourUserId },
+        ],
         status: "ACCEPTED",
       })
         .populate("requester", "_id firstName lastName username bio avatarLink")
         .populate("recipient", "_id firstName lastName username bio avatarLink")
         .lean();
 
-      const existingIds = new Set(conversations.map((c) => c.userId.toString()));
+      const existingIds = new Set(conversations.map((c) => String(c.userId || c._id)));
       const friendEntries = [];
 
       for (const f of friendships) {
-        const friendDoc =
-          f.requester._id.toString() === ourUserId.toString()
-            ? f.recipient
-            : f.requester;
+        if (!f.requester || !f.recipient) continue;
+        const reqId = (f.requester._id || f.requester).toString();
+        const recId = (f.recipient._id || f.recipient).toString();
 
+        const friendDoc = reqId === ourIdStr ? f.recipient : f.requester;
         if (!friendDoc || !friendDoc._id) continue;
         const fId = friendDoc._id.toString();
+
         if (blockedUserIds.has(fId)) continue;
-        if (existingIds.has(fId)) continue; // Avoid duplicate
+        if (existingIds.has(fId)) continue; // Existing conversation takes priority
 
         friendEntries.push({
-          _id: friendDoc._id,
-          userId: friendDoc._id,
+          _id: fId,
+          userId: fId,
           firstName: friendDoc.firstName,
           lastName: friendDoc.lastName,
           username: friendDoc.username,

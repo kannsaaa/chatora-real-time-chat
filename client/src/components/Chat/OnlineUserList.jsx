@@ -17,6 +17,7 @@ const OnlineUsersList = ({
   allPeople = [],
   conversations = [],
   friends = [],
+  currentMessages = [],
   onTogglePin,
   onToggleMute,
   onToggleUnread,
@@ -34,55 +35,126 @@ const OnlineUsersList = ({
     isDeleting: false,
   });
 
-  // 1. Identify all user IDs that already have an existing conversation
-  const existingUserIds = new Set(
-    conversations.map((c) => String(c.userId || c._id))
+  const getContactId = (item) => String(item?.userId || item?._id || "");
+
+  // 1. Build a map of existing conversations keyed by normalized user ID.
+  // Any conversation with actual message history or preferences takes priority!
+  const convMap = new Map();
+  for (const c of conversations || []) {
+    const id = getContactId(c);
+    if (!id) continue;
+    const existing = convMap.get(id);
+    if (!existing) {
+      convMap.set(id, { ...c, _id: id, userId: id });
+    } else {
+      // If we encounter duplicate entries, always prefer the one with a lastMessage
+      if (c.lastMessage && !existing.lastMessage) {
+        convMap.set(id, { ...c, _id: id, userId: id });
+      }
+    }
+  }
+
+  // 2. If the current selected user has active messages in the chat pane,
+  // ensure the conversation entry in the map immediately reflects the latest message!
+  if (selectedUserId && Array.isArray(currentMessages) && currentMessages.length > 0) {
+    const sId = String(selectedUserId);
+    const latestActiveMsg = currentMessages[currentMessages.length - 1];
+    if (latestActiveMsg && (latestActiveMsg.text || latestActiveMsg.isUnsent)) {
+      const existing = convMap.get(sId);
+      const updatedLastMsg = {
+        text: latestActiveMsg.text,
+        isUnsent: Boolean(latestActiveMsg.isUnsent),
+        sender: String(latestActiveMsg.sender),
+        createdAt: latestActiveMsg.createdAt,
+      };
+      if (existing) {
+        convMap.set(sId, {
+          ...existing,
+          lastMessage: updatedLastMsg,
+          noMessagesYet: false,
+          updatedAt: latestActiveMsg.createdAt || existing.updatedAt,
+        });
+      } else {
+        const person = allPeople.find((p) => String(p._id) === sId);
+        const friend = (friends || []).find((f) => getContactId(f) === sId);
+        const onlineP = onlinePeople[sId];
+        const offlineP = offlinePeople[sId];
+        convMap.set(sId, {
+          _id: sId,
+          userId: sId,
+          firstName: friend?.firstName || person?.firstName || offlineP?.firstName || onlineP?.username || "",
+          lastName: friend?.lastName || person?.lastName || offlineP?.lastName || "",
+          username: friend?.username || person?.username || offlineP?.username || onlineP?.userHandle || "",
+          avatarLink: friend?.avatarLink || person?.avatarLink || offlineP?.avatarLink || onlineP?.avatarLink || "",
+          bio: friend?.bio || person?.bio || "",
+          isPinned: false,
+          isMuted: false,
+          isUnread: false,
+          lastMessage: updatedLastMsg,
+          noMessagesYet: false,
+          updatedAt: latestActiveMsg.createdAt,
+        });
+      }
+    }
+  }
+
+  // 3. Derive friends who don't have an existing conversation entry in convMap
+  const friendsWithoutConversations = [];
+  for (const f of friends || []) {
+    const fId = getContactId(f);
+    if (!fId) continue;
+    if (convMap.has(fId)) continue; // Existing conversation ALWAYS takes priority!
+
+    const onlineP = onlinePeople[fId];
+    const offlineP = offlinePeople[fId];
+    friendsWithoutConversations.push({
+      _id: fId,
+      userId: fId,
+      firstName: f.firstName || offlineP?.firstName || onlineP?.username || "",
+      lastName: f.lastName || offlineP?.lastName || "",
+      username: f.username || offlineP?.username || onlineP?.userHandle || "",
+      avatarLink: f.avatarLink || offlineP?.avatarLink || onlineP?.avatarLink || "",
+      bio: f.bio || "",
+      isPinned: false,
+      isMuted: false,
+      isUnread: false,
+      lastMessage: null,
+      noMessagesYet: true,
+      updatedAt: null,
+    });
+  }
+
+  friendsWithoutConversations.sort((a, b) => {
+    const nameA = `${a.firstName} ${a.lastName}`.trim() || a.username || "";
+    const nameB = `${b.firstName} ${b.lastName}`.trim() || b.username || "";
+    return nameA.localeCompare(nameB);
+  });
+
+  // 4. Separate convMap entries into:
+  //    a) Existing conversations with messages (displayed first)
+  //    b) Conversations without messages (displayed underneath)
+  const allConvEntries = Array.from(convMap.values());
+  const existingWithMessages = allConvEntries.filter(
+    (c) => !c.noMessagesYet && Boolean(c.lastMessage && (c.lastMessage.text || c.lastMessage.isUnsent))
+  );
+  const convsWithoutMessages = allConvEntries.filter(
+    (c) => c.noMessagesYet || !c.lastMessage || (!c.lastMessage.text && !c.lastMessage.isUnsent)
   );
 
-  // 2. Derive friends who don't have an existing conversation
-  const friendsWithoutConversations = (friends || [])
-    .filter((f) => {
-      const fId = String(f._id || f.userId);
-      return !existingUserIds.has(fId);
-    })
-    .map((f) => {
-      const fId = String(f._id || f.userId);
-      const onlineP = onlinePeople[fId];
-      const offlineP = offlinePeople[fId];
-      return {
-        _id: fId,
-        userId: fId,
-        firstName: f.firstName || offlineP?.firstName || onlineP?.username || "",
-        lastName: f.lastName || offlineP?.lastName || "",
-        username: f.username || offlineP?.username || onlineP?.userHandle || "",
-        avatarLink:
-          f.avatarLink ||
-          offlineP?.avatarLink ||
-          onlineP?.avatarLink ||
-          "",
-        bio: f.bio || "",
-        isPinned: false,
-        isMuted: false,
-        isUnread: false,
-        lastMessage: null,
-        noMessagesYet: true,
-        updatedAt: null,
-      };
-    })
-    .sort((a, b) => {
-      const nameA = `${a.firstName} ${a.lastName}`.trim() || a.username || "";
-      const nameB = `${b.firstName} ${b.lastName}`.trim() || b.username || "";
-      return nameA.localeCompare(nameB);
-    });
+  // Combine: existing conversations with messages FIRST, then contacts without messages underneath
+  const activeConversations = [
+    ...existingWithMessages,
+    ...convsWithoutMessages,
+    ...friendsWithoutConversations.filter(
+      (f) => !convsWithoutMessages.some((c) => getContactId(c) === getContactId(f))
+    ),
+  ];
 
-  // 3. Existing conversations first, then friends without conversations underneath
-  const activeConversations = [...conversations, ...friendsWithoutConversations];
-
-  // 4. Ensure active selected conversation is represented if not already in list (e.g. from People directory)
+  // 5. Ensure active selected conversation is represented if not already in list (e.g. from People directory)
   if (
     selectedUserId &&
     !activeConversations.some(
-      (c) => String(c.userId) === String(selectedUserId)
+      (c) => getContactId(c) === String(selectedUserId)
     )
   ) {
     const person = allPeople.find(
@@ -168,7 +240,7 @@ const OnlineUsersList = ({
 
   // Online count among conversations
   const onlineCount = activeConversations.filter(
-    (c) => !!onlinePeople[c.userId]
+    (c) => !!onlinePeople[getContactId(c)]
   ).length;
 
   const handleOpenContextMenu = (position, targetUser) => {
@@ -226,18 +298,24 @@ const OnlineUsersList = ({
   };
 
   const renderContactItem = (conv) => {
-    const isOnline = Boolean(onlinePeople[conv.userId]);
+    const convId = getContactId(conv);
+    const isOnline = Boolean(onlinePeople[convId]);
     const fullName = `${conv.firstName || ""} ${conv.lastName || ""}`.trim();
     const displayName =
       fullName ||
       conv.username ||
-      (onlinePeople[conv.userId]?.username) ||
+      (onlinePeople[convId]?.username) ||
       "User";
+
+    const hasActualMessage = Boolean(
+      conv.lastMessage && (conv.lastMessage.text || conv.lastMessage.isUnsent)
+    );
+    const noMessages = conv.noMessagesYet ?? !hasActualMessage;
 
     return (
       <Contact
-        key={`user-${conv.userId}`}
-        userId={conv.userId}
+        key={`user-${convId}`}
+        userId={convId}
         username={displayName}
         userHandle={conv.username || conv.userHandle}
         selectedUserId={selectedUserId}
@@ -251,7 +329,7 @@ const OnlineUsersList = ({
         isMuted={conv.isMuted}
         isUnread={conv.isUnread}
         lastMessage={conv.lastMessage}
-        noMessagesYet={conv.noMessagesYet || !conv.lastMessage}
+        noMessagesYet={noMessages}
         updatedAt={conv.updatedAt}
         isGroup={false}
         onContextMenu={(pos, user) => handleOpenContextMenu(pos, user)}
