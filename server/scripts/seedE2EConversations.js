@@ -32,10 +32,11 @@ async function main() {
   const emailA = "alex_chat@test.com";
   const emailB = "beth_chat@test.com";
   const emailC = "carl_chat@test.com";
+  const emailD = "dana_chat@test.com";
   const pw = "Password123!";
 
   await usersCollection.deleteMany({
-    email: { $in: [emailA, emailB, emailC] },
+    email: { $in: [emailA, emailB, emailC, emailD] },
   });
 
   // 1. Register users
@@ -75,6 +76,18 @@ async function main() {
   });
   await usersCollection.updateOne({ email: emailC }, { $set: { verified: true } });
 
+  await request("/api/user/register", {
+    method: "POST",
+    body: JSON.stringify({
+      firstName: "Dana",
+      lastName: "Newcomer",
+      username: "dana_new",
+      email: emailD,
+      password: pw,
+    }),
+  });
+  await usersCollection.updateOne({ email: emailD }, { $set: { verified: true } });
+
   // 2. Login
   const loginA = await request("/api/user/login", {
     method: "POST",
@@ -94,14 +107,23 @@ async function main() {
   });
   const profC = await request("/api/user/profile", {}, loginC.cookie);
 
-  // 3. Make friends: Alex <-> Beth and Alex <-> Carl
+  const loginD = await request("/api/user/login", {
+    method: "POST",
+    body: JSON.stringify({ email: emailD, password: pw }),
+  });
+  const profD = await request("/api/user/profile", {}, loginD.cookie);
+
+  // 3. Make friends: Alex <-> Beth, Alex <-> Carl, Alex <-> Dana
   await request(`/api/friends/request/${profB.data._id}`, { method: "POST" }, loginA.cookie);
   await request(`/api/friends/request/${profA.data._id}/accept`, { method: "POST" }, loginB.cookie);
 
   await request(`/api/friends/request/${profC.data._id}`, { method: "POST" }, loginA.cookie);
   await request(`/api/friends/request/${profA.data._id}/accept`, { method: "POST" }, loginC.cookie);
 
-  // 4. Send messages
+  await request(`/api/friends/request/${profD.data._id}`, { method: "POST" }, loginA.cookie);
+  await request(`/api/friends/request/${profA.data._id}/accept`, { method: "POST" }, loginD.cookie);
+
+  // 4. Send messages: Beth and Carl have messages with Alex. Dana has 0 messages with Alex.
   await request(`/api/user/messages/${profB.data._id}`, {
     method: "POST",
     body: JSON.stringify({ text: "Hey Beth, did you finish the new design?" }),
@@ -116,6 +138,15 @@ async function main() {
     method: "POST",
     body: JSON.stringify({ text: "Hi Alex, running regression tests now." }),
   }, loginC.cookie);
+
+  // 5. Create a group: Design Team
+  await request("/api/groups", {
+    method: "POST",
+    body: JSON.stringify({
+      name: "Design & QA Team",
+      members: [profB.data._id],
+    }),
+  }, loginA.cookie);
 
   console.log("Seed data ready!");
   console.log(`User: ${emailA} / Password: ${pw}`);

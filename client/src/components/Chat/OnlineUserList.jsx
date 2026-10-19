@@ -16,6 +16,7 @@ const OnlineUsersList = ({
   onOpenCreateGroup,
   allPeople = [],
   conversations = [],
+  friends = [],
   onTogglePin,
   onToggleMute,
   onToggleUnread,
@@ -33,8 +34,51 @@ const OnlineUsersList = ({
     isDeleting: false,
   });
 
-  // Ensure active selected conversation is represented if not already in list
-  const activeConversations = [...conversations];
+  // 1. Identify all user IDs that already have an existing conversation
+  const existingUserIds = new Set(
+    conversations.map((c) => String(c.userId || c._id))
+  );
+
+  // 2. Derive friends who don't have an existing conversation
+  const friendsWithoutConversations = (friends || [])
+    .filter((f) => {
+      const fId = String(f._id || f.userId);
+      return !existingUserIds.has(fId);
+    })
+    .map((f) => {
+      const fId = String(f._id || f.userId);
+      const onlineP = onlinePeople[fId];
+      const offlineP = offlinePeople[fId];
+      return {
+        _id: fId,
+        userId: fId,
+        firstName: f.firstName || offlineP?.firstName || onlineP?.username || "",
+        lastName: f.lastName || offlineP?.lastName || "",
+        username: f.username || offlineP?.username || onlineP?.userHandle || "",
+        avatarLink:
+          f.avatarLink ||
+          offlineP?.avatarLink ||
+          onlineP?.avatarLink ||
+          "",
+        bio: f.bio || "",
+        isPinned: false,
+        isMuted: false,
+        isUnread: false,
+        lastMessage: null,
+        noMessagesYet: true,
+        updatedAt: null,
+      };
+    })
+    .sort((a, b) => {
+      const nameA = `${a.firstName} ${a.lastName}`.trim() || a.username || "";
+      const nameB = `${b.firstName} ${b.lastName}`.trim() || b.username || "";
+      return nameA.localeCompare(nameB);
+    });
+
+  // 3. Existing conversations first, then friends without conversations underneath
+  const activeConversations = [...conversations, ...friendsWithoutConversations];
+
+  // 4. Ensure active selected conversation is represented if not already in list (e.g. from People directory)
   if (
     selectedUserId &&
     !activeConversations.some(
@@ -47,7 +91,7 @@ const OnlineUsersList = ({
     const onlineP = onlinePeople[selectedUserId];
     const offlineP = offlinePeople[selectedUserId];
     if (person || onlineP || offlineP) {
-      activeConversations.unshift({
+      activeConversations.push({
         _id: selectedUserId,
         userId: selectedUserId,
         firstName:
@@ -67,7 +111,8 @@ const OnlineUsersList = ({
         isMuted: false,
         isUnread: false,
         lastMessage: null,
-        updatedAt: new Date().toISOString(),
+        noMessagesYet: true,
+        updatedAt: null,
       });
     }
   }
@@ -206,6 +251,7 @@ const OnlineUsersList = ({
         isMuted={conv.isMuted}
         isUnread={conv.isUnread}
         lastMessage={conv.lastMessage}
+        noMessagesYet={conv.noMessagesYet || !conv.lastMessage}
         updatedAt={conv.updatedAt}
         isGroup={false}
         onContextMenu={(pos, user) => handleOpenContextMenu(pos, user)}

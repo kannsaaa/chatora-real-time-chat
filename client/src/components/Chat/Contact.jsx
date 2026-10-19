@@ -14,6 +14,7 @@ const Contact = ({
   isMuted = false,
   isUnread = false,
   lastMessage = null,
+  noMessagesYet = false,
   isGroup = false,
   memberCount = null,
   updatedAt = null,
@@ -38,6 +39,7 @@ const Contact = ({
     avatarLink,
     isGroup,
     memberCount,
+    noMessagesYet,
   };
 
   const handleTouchStart = (e) => {
@@ -237,7 +239,7 @@ const Contact = ({
 
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Timestamp */}
-            {(lastMessage?.createdAt || updatedAt) && (
+            {(lastMessage?.createdAt || (!noMessagesYet && updatedAt)) && (
               <span className="text-[11px] text-plum-500 font-semibold">
                 {(() => {
                   try {
@@ -254,7 +256,6 @@ const Contact = ({
                 })()}
               </span>
             )}
-
             {/* Unread dot */}
             {isUnread && (
               <span
@@ -334,37 +335,20 @@ const Contact = ({
                 </span>
               );
             }
-            if (userHandle) {
-              return (
-                <span
-                  className={`text-xs truncate font-medium ${
-                    isSelected
-                      ? "text-chatora-pink"
-                      : isUnread
-                      ? "text-plum-700 font-bold"
-                      : "text-plum-600"
-                  }`}
-                >
-                  @{userHandle}
-                </span>
-              );
-            }
             return (
               <span
-                className={`text-xs truncate ${
+                className={`text-xs truncate italic ${
                   isSelected
                     ? "text-chatora-pink font-semibold"
-                    : isOnline
-                    ? "text-plum-700 font-medium"
-                    : "text-plum-600 font-medium"
+                    : "text-plum-400 font-medium"
                 }`}
               >
-                {isOnline ? "Active now" : "Offline"}
+                No messages yet
               </span>
             );
           })()}
 
-          {!lastMessage?.text && !isGroup && userHandle && (
+          {!lastMessage?.text && !isGroup && (
             <span
               className={`text-[11px] truncate flex-shrink-0 font-medium ${
                 isSelected

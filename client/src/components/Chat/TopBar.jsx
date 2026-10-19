@@ -12,6 +12,7 @@ const TopBar = ({
   onlinePeople,
   allPeople = [],
   conversations = [],
+  friends = [],
   onDeleteConversation,
   onUnfriend,
   onBlockUser,
@@ -48,10 +49,16 @@ const TopBar = ({
   const convUser = (conversations || []).find(
     (c) => String(c.userId) === String(selectedUserId)
   );
+  const friendUser = (friends || []).find(
+    (f) => String(f._id || f.userId) === String(selectedUserId)
+  );
 
   const fullName = isGroup
     ? currentGroup?.name || "Group Chat"
-    : (offlineUser
+    : (friendUser
+        ? `${friendUser.firstName || ""} ${friendUser.lastName || ""}`.trim() || friendUser.username
+        : "") ||
+      (offlineUser
         ? `${offlineUser.firstName || ""} ${offlineUser.lastName || ""}`.trim()
         : "") ||
       (directoryUser
@@ -65,14 +72,16 @@ const TopBar = ({
 
   const usernameHandle = isGroup
     ? null
-    : directoryUser?.username ||
+    : friendUser?.username ||
+      directoryUser?.username ||
       offlineUser?.username ||
       onlineUser?.userHandle ||
       null;
 
   const avatarLink = isGroup
     ? currentGroup?.avatar || "👥"
-    : directoryUser?.avatarLink ||
+    : friendUser?.avatarLink ||
+      directoryUser?.avatarLink ||
       offlineUser?.avatarLink ||
       onlineUser?.avatarLink ||
       "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback";

@@ -105,6 +105,69 @@ const getConversations = async (req, res) => {
       return timeB - timeA;
     });
 
+    if (req.query.includeFriends === "true") {
+      const Friendship = require("../models/friendshipModel");
+      const Block = require("../models/blockModel");
+
+      const blocks = await Block.find({
+        $or: [{ blocker: ourUserId }, { blocked: ourUserId }],
+      }).lean();
+      const blockedUserIds = new Set(
+        blocks.map((b) =>
+          b.blocker.toString() === ourUserId.toString()
+            ? b.blocked.toString()
+            : b.blocker.toString()
+        )
+      );
+
+      const friendships = await Friendship.find({
+        $or: [{ requester: ourUserId }, { recipient: ourUserId }],
+        status: "ACCEPTED",
+      })
+        .populate("requester", "_id firstName lastName username bio avatarLink")
+        .populate("recipient", "_id firstName lastName username bio avatarLink")
+        .lean();
+
+      const existingIds = new Set(conversations.map((c) => c.userId.toString()));
+      const friendEntries = [];
+
+      for (const f of friendships) {
+        const friendDoc =
+          f.requester._id.toString() === ourUserId.toString()
+            ? f.recipient
+            : f.requester;
+
+        if (!friendDoc || !friendDoc._id) continue;
+        const fId = friendDoc._id.toString();
+        if (blockedUserIds.has(fId)) continue;
+        if (existingIds.has(fId)) continue; // Avoid duplicate
+
+        friendEntries.push({
+          _id: friendDoc._id,
+          userId: friendDoc._id,
+          firstName: friendDoc.firstName,
+          lastName: friendDoc.lastName,
+          username: friendDoc.username,
+          avatarLink: friendDoc.avatarLink,
+          bio: friendDoc.bio,
+          lastMessage: null,
+          isPinned: false,
+          isMuted: false,
+          isUnread: false,
+          noMessagesYet: true,
+          updatedAt: null,
+        });
+      }
+
+      friendEntries.sort((a, b) => {
+        const nameA = `${a.firstName} ${a.lastName}`.trim() || a.username || "";
+        const nameB = `${b.firstName} ${b.lastName}`.trim() || b.username || "";
+        return nameA.localeCompare(nameB);
+      });
+
+      conversations.push(...friendEntries);
+    }
+
     return res.status(200).json(conversations);
   } catch (error) {
     console.error("Error in getConversations:", error);

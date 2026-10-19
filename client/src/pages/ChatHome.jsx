@@ -34,6 +34,7 @@ const ChatHome = () => {
   const [offlinePeople, setOfflinePeople] = useState({});
   const [allPeople, setAllPeople] = useState([]);
   const [conversations, setConversations] = useState([]);
+  const [friends, setFriends] = useState([]);
   const [relationshipStatus, setRelationshipStatus] = useState("LOADING");
   const [isChaosOpen, setIsChaosOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
@@ -142,6 +143,22 @@ const ChatHome = () => {
 
   useEffect(() => {
     fetchConversations();
+  }, []);
+
+  // Fetch friends from backend
+  const fetchFriends = async () => {
+    try {
+      const res = await axios.get("/api/friends");
+      if (Array.isArray(res.data)) {
+        setFriends(res.data);
+      }
+    } catch (err) {
+      console.error("Error fetching friends:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchFriends();
   }, []);
 
   // Fetch messages and group details when group selected
@@ -323,6 +340,7 @@ const ChatHome = () => {
         if (String(selectedUserIdRef.current) === String(messageData.by?._id)) {
           setRelationshipStatus("FRIENDS");
         }
+        fetchFriends();
       } else if (messageData.type === "message_unsent") {
         const unsentId = messageData.messageId || messageData.id;
         setMessages((prev) =>
@@ -673,6 +691,8 @@ const ChatHome = () => {
         setMessages([]);
       }
       toast.success("Conversation deleted");
+      fetchFriends();
+      fetchConversations();
     } catch (error) {
       console.error("Error deleting conversation:", error);
       toast.error(
@@ -687,6 +707,8 @@ const ChatHome = () => {
       await axios.delete(`/api/friends/${userId}`);
       toast.success("Unfriended successfully");
       setRelationshipStatus("NOT_CONNECTED");
+      fetchFriends();
+      fetchConversations();
     } catch (error) {
       console.error("Error unfriending user:", error);
       toast.error(error?.response?.data?.message || "Failed to unfriend");
@@ -698,6 +720,8 @@ const ChatHome = () => {
       await axios.post(`/api/friends/block/${userId}`);
       toast.success("User blocked");
       setRelationshipStatus("BLOCKED");
+      fetchFriends();
+      fetchConversations();
     } catch (error) {
       console.error("Error blocking user:", error);
       toast.error(error?.response?.data?.message || "Failed to block user");
@@ -798,6 +822,7 @@ const ChatHome = () => {
         offlinePeople={offlinePeople}
         allPeople={allPeople}
         conversations={conversations}
+        friends={friends}
         onTogglePin={handleTogglePin}
         onToggleMute={handleToggleMute}
         onToggleUnread={handleToggleUnread}
@@ -854,9 +879,9 @@ const ChatHome = () => {
           <>
             <TopBar
               selectedUserId={selectedUserId}
-              setSelectedUserId={setSelectedUserId}
+              setSelectedUserId={handleSelectUser}
               selectedGroupId={selectedGroupId}
-              setSelectedGroupId={setSelectedGroupId}
+              setSelectedGroupId={handleSelectGroup}
               currentGroup={currentGroup}
               onOpenGroupInfo={() => setIsGroupInfoOpen(true)}
               onLeaveGroup={() => setIsGroupInfoOpen(true)}
@@ -864,6 +889,7 @@ const ChatHome = () => {
               onlinePeople={onlinePeople}
               allPeople={allPeople}
               conversations={conversations}
+              friends={friends}
               onDeleteConversation={handleDeleteConversation}
               onUnfriend={handleUnfriend}
               onBlockUser={handleBlockUser}
