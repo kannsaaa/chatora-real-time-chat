@@ -22,8 +22,8 @@ const Privacy = () => {
     { id: "overview", title: "1. Overview & Commitment" },
     { id: "information-collected", title: "2. Information We Collect" },
     { id: "email-usage", title: "3. How We Use Email Addresses" },
-    { id: "gmail-api", title: "4. Google Gmail API & gmail.send Scope" },
-    { id: "google-limited-use", title: "5. Google Limited Use Disclosure" },
+    { id: "email-delivery", title: "4. Transactional Email Delivery (Brevo)" },
+    { id: "gemini-ai", title: "5. Google Gemini AI & Third-Party Services" },
     { id: "no-sale", title: "6. We Do Not Sell User Data" },
     { id: "data-security", title: "7. Data Storage & Security" },
     { id: "user-rights", title: "8. User Controls & Data Rights" },
@@ -139,7 +139,7 @@ const Privacy = () => {
                 Zero Inbox Access
               </h3>
               <p className="text-xs text-plum-600 leading-relaxed font-medium">
-                We use Gmail API <code className="text-[11px] font-bold text-chatora-pink">gmail.send</code> only. We NEVER read inboxes, emails, or contacts.
+                We deliver verification emails via Brevo REST API. We NEVER read, inspect, or access user inboxes or contacts.
               </p>
             </div>
 
@@ -333,9 +333,9 @@ const Privacy = () => {
             </div>
           </section>
 
-          {/* Section 4: Google Gmail API & gmail.send Scope */}
+          {/* Section 4: Transactional Email Delivery (Brevo) */}
           <section
-            id="gmail-api"
+            id="email-delivery"
             className="bg-white border-2 border-chatora-pink/30 rounded-3xl p-6 sm:p-10 shadow-sweet-pink relative overflow-hidden"
           >
             <div className="absolute top-0 right-0 w-36 h-36 bg-gradient-to-bl from-chatora-pink/10 to-transparent pointer-events-none rounded-bl-full"></div>
@@ -346,33 +346,33 @@ const Privacy = () => {
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-plum-900">
-                  Google Gmail API &amp; <code className="text-chatora-pink">gmail.send</code> Scope
+                  Transactional Email Delivery via Brevo API
                 </h2>
                 <span className="text-xs font-bold text-plum-500 uppercase tracking-wide">
-                  Transactional Mail Delivery System
+                  Automated Transactional Mail Service
                 </span>
               </div>
             </div>
 
             <div className="space-y-4 text-sm sm:text-base text-plum-700 leading-relaxed">
               <p>
-                Chatora integrates with Google APIs using the official Google Gmail API Node.js library (<code className="px-2 py-0.5 rounded-lg bg-cream-200 text-plum-900 font-mono text-xs">googleapis</code>) solely to facilitate automated email dispatch.
+                Chatora delivers account verification and password reset emails through <strong>Brevo</strong> (formerly Sendinblue), a certified transactional email provider, using direct HTTPS REST API endpoints.
               </p>
 
-              {/* Scope Box */}
+              {/* Service Box */}
               <div className="p-4 sm:p-5 rounded-2xl bg-cream-50 border border-border-subtle">
                 <div className="text-xs font-extrabold uppercase tracking-wider text-plum-500 mb-1">
-                  OAuth 2.0 Requested Scope
+                  Delivery Method &amp; Scope
                 </div>
-                <div className="text-sm sm:text-base font-mono font-bold text-plum-900 break-all bg-white px-3 py-2 rounded-xl border border-border-subtle">
-                  https://www.googleapis.com/auth/gmail.send
+                <div className="text-sm font-semibold text-plum-900">
+                  REST API Transactional Dispatch (Send-Only)
                 </div>
-                <p className="text-xs text-plum-600 mt-2 font-medium">
-                  This scope provides restricted, send-only permissions used by our server backend to deliver verification and account recovery emails to you.
+                <p className="text-xs text-plum-600 mt-1.5 font-medium">
+                  Email communications are strictly limited to automated delivery of account verification links and security tokens.
                 </p>
               </div>
 
-              {/* Prominent Negative Guarantee / Boundary */}
+              {/* Explicit Privacy Guarantee */}
               <div className="p-5 rounded-2xl bg-emerald-50/80 border border-emerald-200 text-plum-900">
                 <h4 className="font-extrabold text-emerald-950 text-base mb-2 flex items-center gap-2">
                   <span>🛡️</span> Explicit Privacy Guarantee: What Chatora DOES NOT Do
@@ -380,97 +380,80 @@ const Privacy = () => {
                 <ul className="space-y-2 text-xs sm:text-sm text-emerald-900 font-medium">
                   <li className="flex items-start gap-2">
                     <span className="text-red-500 font-bold shrink-0">✕</span>
-                    <span>Chatora does <strong>NOT</strong> read users&apos; Gmail inboxes, incoming emails, or outgoing messages.</span>
+                    <span>Chatora does <strong>NOT</strong> access, read, or inspect users&apos; email inboxes or messages.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-red-500 font-bold shrink-0">✕</span>
-                    <span>Chatora does <strong>NOT</strong> inspect, analyze, scan, index, or store users&apos; email contents, drafts, or email threads.</span>
+                    <span>Chatora does <strong>NOT</strong> access email contacts, address books, or calendars.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-red-500 font-bold shrink-0">✕</span>
-                    <span>Chatora does <strong>NOT</strong> access Google Contacts, address books, calendar entries, or Google Drive files.</span>
+                    <span>Chatora does <strong>NOT</strong> share recipient email addresses with third-party advertisers or commercial brokers.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-red-500 font-bold shrink-0">✕</span>
-                    <span>Chatora does <strong>NOT</strong> request any read scopes such as <code className="font-mono text-xs">gmail.readonly</code> or full mailbox access.</span>
+                    <span>Chatora does <strong>NOT</strong> send marketing blasts, newsletters, or promotional campaigns.</span>
                   </li>
                 </ul>
               </div>
 
               <p className="text-xs sm:text-sm text-plum-600">
-                Our application only sends transactional messages from our verified service address (<code className="text-xs font-mono font-bold text-plum-800">brajrajsinh2708@gmail.com</code>) to the recipient email you registered with.
+                Transactional emails originate exclusively from our verified sender address to confirm user identity and protect account security.
               </p>
             </div>
           </section>
 
-          {/* Section 5: Google Limited Use Disclosure */}
+          {/* Section 5: Google Gemini AI & Third-Party Services */}
           <section
-            id="google-limited-use"
+            id="gemini-ai"
             className="bg-white border border-border-subtle rounded-3xl p-6 sm:p-10 shadow-sweet"
           >
             <div className="flex items-center gap-3 mb-4">
               <div className="w-9 h-9 rounded-2xl bg-chatora-pinkLight flex items-center justify-center text-chatora-pink font-extrabold text-sm">
                 5
               </div>
-              <h2 className="text-xl sm:text-2xl font-black text-plum-900">
-                Google API Services User Data Policy &amp; Limited Use
-              </h2>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-black text-plum-900">
+                  Google Gemini AI &amp; Third-Party Services
+                </h2>
+                <span className="text-xs font-bold text-plum-500 uppercase tracking-wide">
+                  Creative Conversation Engine (Chaos Mode)
+                </span>
+              </div>
             </div>
 
             <div className="space-y-4 text-sm sm:text-base text-plum-700 leading-relaxed">
               <p>
-                Chatora complies strictly with Google&apos;s policies governing the use of Google API Services. In accordance with Google&apos;s developer requirements, we provide the following official disclosure:
+                Chatora integrates with <strong>Google Gemini AI</strong> solely to power the creative prompt generation in our <strong>Chaos Mode</strong> feature (such as icebreakers, playful debates, and trivia questions).
               </p>
 
-              {/* Required Google Disclosure Quote */}
-              <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-r from-cream-100 to-cream-50 border-2 border-chatora-pink/30 text-plum-900 shadow-sweet-sm">
-                <div className="text-xs font-black uppercase tracking-wider text-chatora-pink mb-2 flex items-center gap-1.5">
-                  <span>📜</span> Official Limited Use Disclosure
+              <div className="p-4 sm:p-5 rounded-2xl bg-cream-50 border border-border-subtle space-y-2 text-xs sm:text-sm">
+                <div className="font-bold text-plum-900">
+                  How AI Generation Works:
                 </div>
-                <blockquote className="text-sm sm:text-base font-bold italic text-plum-900 leading-relaxed">
-                  &ldquo;Chatora&apos;s use and transfer to any other app of information received from Google APIs will adhere to the{" "}
-                  <a
-                    href="https://developers.google.com/terms/api-services-user-data-policy"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-chatora-pink underline hover:text-chatora-pinkHover"
-                  >
-                    Google API Services User Data Policy
-                  </a>
-                  , including the Limited Use requirements.&rdquo;
-                </blockquote>
+                <ul className="space-y-1.5 text-plum-600 pl-1">
+                  <li>• Chaos Mode sends general prompt instructions (e.g. &ldquo;generate a friendly debate topic&rdquo;) to the Gemini API.</li>
+                  <li>• <strong>No personal user data, private chat messages, or profile records</strong> are ever transmitted to the Gemini API.</li>
+                  <li>• If Gemini is unavailable, Chaos Mode seamlessly uses our curated in-memory prompt pool.</li>
+                </ul>
               </div>
 
               <div className="pt-2">
                 <h3 className="font-bold text-plum-900 text-sm sm:text-base mb-3">
-                  Our Adherence to Limited Use Principles:
+                  Google API Services User Data Policy Compliance:
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs sm:text-sm">
                   <div className="p-4 rounded-2xl bg-cream-50 border border-border-subtle">
-                    <strong className="text-plum-900 block mb-1">1. No Human Reading</strong>
+                    <strong className="text-plum-900 block mb-1">1. Zero Private Data Transfer</strong>
                     <p className="text-plum-600">
-                      Humans do not read any Google user data, unless you provide affirmative agreement for specific messages, necessary for security/bug investigation, or required by law.
+                      We never send users&apos; private chats, contact lists, or personal identifiers to external AI services.
                     </p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-cream-50 border border-border-subtle">
                     <strong className="text-plum-900 block mb-1">2. No Advertising Use</strong>
                     <p className="text-plum-600">
-                      We never use or transfer Google user data for serving advertisements, retargeting campaigns, or interest-based marketing.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-cream-50 border border-border-subtle">
-                    <strong className="text-plum-900 block mb-1">3. Minimal Transfers</strong>
-                    <p className="text-plum-600">
-                      We only transfer data if necessary to provide or improve user-facing features that are prominent in the Chatora interface, or to comply with applicable law.
-                    </p>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-cream-50 border border-border-subtle">
-                    <strong className="text-plum-900 block mb-1">4. No AI/ML Training</strong>
-                    <p className="text-plum-600">
-                      We do not use or transfer data received from Google APIs to train, retrain, or fine-tune artificial intelligence or generalized machine learning models.
+                      We never use Google APIs for advertising, tracking, or profiling users across the web.
                     </p>
                   </div>
                 </div>
@@ -561,7 +544,7 @@ const Privacy = () => {
               </div>
 
               <p className="text-xs sm:text-sm text-plum-600">
-                Backend secrets, including Google API OAuth2 credentials (<code className="text-xs font-mono text-plum-800">GMAIL_CLIENT_ID</code>, <code className="text-xs font-mono text-plum-800">GMAIL_CLIENT_SECRET</code>, <code className="text-xs font-mono text-plum-800">GMAIL_REFRESH_TOKEN</code>), and JWT private keys are stored strictly in protected server environment variables and never exposed to the client bundle.
+                Backend secrets, including email delivery credentials (<code className="text-xs font-mono text-plum-800">BREVO_API_KEY</code>), AI integration credentials (<code className="text-xs font-mono text-plum-800">GEMINI_API_KEY</code>), and JWT private keys are stored strictly in protected server environment variables and never exposed to the client bundle.
               </p>
             </div>
           </section>

@@ -87,7 +87,7 @@ Chatora features the bespoke **Sweet Chaos** design language, crafted to feel wa
 - **Authorization**: Protected REST middleware and authenticated WebSocket handshake validation
 
 ### Email Service
-- **Mailer**: Google Gmail API (`googleapis` Node.js client with OAuth2 token refresh)
+- **Mailer**: Brevo Transactional Email REST API (native Node.js `fetch`)
 
 ---
 
@@ -224,10 +224,9 @@ Create `server/.env` based on `server/.env.example`. **Never commit your `.env` 
 | `PORT` | Port for the Express and WebSocket server | `4000` |
 | `BASE_URL` | Frontend client URL (CORS and email redirects) | `http://localhost:5173` |
 | `NODE_ENV` | Application environment mode | `development` |
-| `GMAIL_CLIENT_ID` | Google OAuth2 Client ID from Google Cloud Console | `your_gmail_client_id_here` |
-| `GMAIL_CLIENT_SECRET` | Google OAuth2 Client Secret | `your_gmail_client_secret_here` |
-| `GMAIL_REFRESH_TOKEN` | Authorized Gmail OAuth2 refresh token (`https://www.googleapis.com/auth/gmail.send`) | `your_gmail_refresh_token_here` |
-| `GMAIL_SENDER_EMAIL` | Sender Gmail address *(e.g. `your_email@gmail.com`)* | `your_email@gmail.com` |
+| `BREVO_API_KEY` | Brevo API key for transactional email delivery | `your_brevo_api_key_here` |
+| `BREVO_FROM_EMAIL` | Verified sender email address in Brevo *(e.g. `your_email@example.com`)* | `your_email@example.com` |
+| `GEMINI_API_KEY` | Google Gemini AI API key for Chaos Mode conversation generation | `your_gemini_api_key_here` |
 
 ### Frontend Configuration (`client/.env`)
 
