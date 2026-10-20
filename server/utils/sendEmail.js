@@ -81,7 +81,7 @@ const sendEmail = async (email, subject, text, customHtml) => {
 
   const isUnconfigured =
     isPlaceholder(apiKey, "your_brevo_api_key_here") ||
-    isPlaceholder(fromEmail, "your_email@gmail.com") ||
+    isPlaceholder(fromEmail, "your_verified_sender@example.com") ||
     isPlaceholder(fromEmail, "your_brevo_from_email_here");
 
   // Safe development fallback: if Brevo credentials are not configured locally
