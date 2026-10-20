@@ -25,6 +25,9 @@ const Footer = () => {
             <Link to="/register" className="hover:text-chatora-pink transition-colors">
               Register
             </Link>
+            <Link to="/privacy" className="hover:text-chatora-pink transition-colors">
+              Privacy Policy
+            </Link>
           </div>
         </div>
 

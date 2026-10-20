@@ -18,6 +18,7 @@ import { useEffect } from "react";
 import Profile from "./components/Profile";
 import People from "./pages/People";
 import Friends from "./pages/Friends";
+import Privacy from "./pages/Privacy";
 import MobileTestPreview from "./pages/MobileTestPreview";
 import { baseUrl } from "../apiConfig";
 
@@ -93,6 +94,10 @@ const router = createBrowserRouter([
       {
         path: "friends",
         element: <Friends />,
+      },
+      {
+        path: "privacy",
+        element: <Privacy />,
       },
     ],
   },

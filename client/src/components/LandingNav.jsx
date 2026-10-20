@@ -44,19 +44,26 @@ const LandingNav = () => {
           id="navbar-default"
         >
           <a
-            href="#features"
+            href="/#features"
             className="text-sm font-semibold text-plum-600 hover:text-plum-900 transition-colors"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             Features ✨
           </a>
           <a
-            href="#architecture"
+            href="/#architecture"
             className="text-sm font-semibold text-plum-600 hover:text-plum-900 transition-colors"
             onClick={() => setIsMobileMenuOpen(false)}
           >
             Architecture ⚡
           </a>
+          <Link
+            to="/privacy"
+            className="text-sm font-semibold text-plum-600 hover:text-plum-900 transition-colors"
+            onClick={() => setIsMobileMenuOpen(false)}
+          >
+            Privacy 🛡️
+          </Link>
 
           <div className="flex items-center gap-3 w-full md:w-auto pt-2 md:pt-0">
             {isAuthenticated ? (
