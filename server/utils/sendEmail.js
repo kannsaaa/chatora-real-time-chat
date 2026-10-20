@@ -1,5 +1,6 @@
 // utils/sendEmail.js
-const { google } = require("googleapis");
+
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 /**
  * Generates an HTML verification email template conforming to Chatora's visual style.
@@ -62,131 +63,16 @@ const getVerificationHtml = (url) => {
 };
 
 /**
- * Splits a base64 string into RFC 2045 standard 76-character lines.
- * @param {string} b64 - Base64 string
- * @returns {string} Wrapped base64 string
- */
-const wrapBase64 = (b64) => {
-  if (!b64) return "";
-  return (b64.match(/.{1,76}/g) || []).join("\r\n");
-};
-
-/**
- * Builds an RFC 2822 MIME message and encodes it as a base64url string for Gmail API.
- * @param {Object} options
- * @param {string} options.from - Sender address (e.g. "Chatora <sender@gmail.com>")
- * @param {string} options.to - Recipient email
- * @param {string} options.subject - Subject line
- * @param {string} options.text - Plain text content
- * @param {string} [options.html] - HTML content
- * @returns {string} base64url-encoded MIME message
- */
-const buildMimeMessage = ({ from, to, subject, text, html }) => {
-  const boundary = `__chatora_boundary_${Date.now()}_${Math.random().toString(36).substring(2)}__`;
-  // RFC 2047 encoded subject to safely handle Unicode/emojis in subject lines
-  const encodedSubject = `=?UTF-8?B?${Buffer.from(subject, "utf-8").toString("base64")}?=`;
-
-  const headers = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${encodedSubject}`,
-    "MIME-Version: 1.0",
-  ];
-
-  let body = "";
-
-  if (html) {
-    headers.push(`Content-Type: multipart/alternative; boundary="${boundary}"`);
-    const plainPart = [
-      `--${boundary}`,
-      'Content-Type: text/plain; charset="UTF-8"',
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(Buffer.from(text || "", "utf-8").toString("base64")),
-    ].join("\r\n");
-
-    const htmlPart = [
-      `--${boundary}`,
-      'Content-Type: text/html; charset="UTF-8"',
-      "Content-Transfer-Encoding: base64",
-      "",
-      wrapBase64(Buffer.from(html, "utf-8").toString("base64")),
-      `--${boundary}--`,
-    ].join("\r\n");
-
-    body = `${plainPart}\r\n${htmlPart}`;
-  } else {
-    headers.push('Content-Type: text/plain; charset="UTF-8"');
-    headers.push("Content-Transfer-Encoding: base64");
-    body = wrapBase64(Buffer.from(text || "", "utf-8").toString("base64"));
-  }
-
-  const rawMime = `${headers.join("\r\n")}\r\n\r\n${body}`;
-  return Buffer.from(rawMime, "utf-8").toString("base64url");
-};
-
-/**
- * Formats sender address with display name if not already present.
- * @param {string} sender - Sender email or formatted string
- * @returns {string} Formatted sender header
- */
-const formatSender = (sender) => {
-  const trimmed = (sender || "").trim();
-  if (!trimmed) return "Chatora";
-  if (trimmed.includes("<") && trimmed.includes(">")) {
-    return trimmed;
-  }
-  return `Chatora <${trimmed}>`;
-};
-
-// Cached OAuth2 client instance to preserve active tokens and allow automatic refresh
-let cachedOAuth2Client = null;
-let cachedCredentialsKey = "";
-
-/**
- * Initializes and returns the google.auth.OAuth2 client with refresh token credentials.
- * @param {string} clientId
- * @param {string} clientSecret
- * @param {string} refreshToken
- * @returns {google.auth.OAuth2}
- */
-const getOAuth2Client = (clientId, clientSecret, refreshToken) => {
-  const credentialsKey = `${clientId}:${clientSecret}:${refreshToken}`;
-  if (cachedOAuth2Client && cachedCredentialsKey === credentialsKey) {
-    return cachedOAuth2Client;
-  }
-
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret);
-  oauth2Client.setCredentials({
-    refresh_token: refreshToken,
-  });
-
-  cachedOAuth2Client = oauth2Client;
-  cachedCredentialsKey = credentialsKey;
-  return oauth2Client;
-};
-
-/**
- * Resets the cached OAuth2 client instance (useful for testing).
- */
-const resetClient = () => {
-  cachedOAuth2Client = null;
-  cachedCredentialsKey = "";
-};
-
-/**
- * Sends an email using Google Gmail API Node.js client (googleapis).
+ * Sends a transactional email using Brevo (formerly Sendinblue) Transactional Email API.
  * @param {string} email - Destination recipient email address
  * @param {string} subject - Email subject line
  * @param {string} text - Plaintext content or verification URL
  * @param {string} [customHtml] - Optional custom HTML content
- * @returns {Promise<Object>} Gmail API response data
+ * @returns {Promise<Object>} Brevo API response data
  */
 const sendEmail = async (email, subject, text, customHtml) => {
-  const clientId = (process.env.GMAIL_CLIENT_ID || "").trim();
-  const clientSecret = (process.env.GMAIL_CLIENT_SECRET || "").trim();
-  const refreshToken = (process.env.GMAIL_REFRESH_TOKEN || "").trim();
-  const senderEmail = (process.env.GMAIL_SENDER_EMAIL || "").trim();
+  const apiKey = (process.env.BREVO_API_KEY || "").trim();
+  const fromEmail = (process.env.BREVO_FROM_EMAIL || "").trim();
 
   const isPlaceholder = (val, placeholder) =>
     !val ||
@@ -194,29 +80,27 @@ const sendEmail = async (email, subject, text, customHtml) => {
     val.toLowerCase() === "undefined";
 
   const isUnconfigured =
-    isPlaceholder(clientId, "your_gmail_client_id_here") ||
-    isPlaceholder(clientSecret, "your_gmail_client_secret_here") ||
-    isPlaceholder(refreshToken, "your_gmail_refresh_token_here") ||
-    isPlaceholder(senderEmail, "your_email@gmail.com") ||
-    isPlaceholder(senderEmail, "your_gmail_sender_email_here");
+    isPlaceholder(apiKey, "your_brevo_api_key_here") ||
+    isPlaceholder(fromEmail, "your_email@gmail.com") ||
+    isPlaceholder(fromEmail, "your_brevo_from_email_here");
 
-  // Safe development fallback: if Gmail credentials are not configured locally
+  // Safe development fallback: if Brevo credentials are not configured locally
   if (isUnconfigured) {
     if (process.env.NODE_ENV !== "production") {
       console.warn(
-        `[sendEmail] Gmail API credentials (GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, GMAIL_SENDER_EMAIL) are not fully configured. Development mode: external email was not sent.`
+        `[sendEmail] Brevo API credentials (BREVO_API_KEY, BREVO_FROM_EMAIL) are not fully configured. Development mode: external email was not sent.`
       );
       console.warn(`[sendEmail] Target: ${email} | Subject: "${subject}"`);
       if (text) {
-        console.warn(`[sendEmail] Verification Link: ${text}`);
+        console.warn(`[sendEmail] Content/Link: ${text}`);
       }
       return { id: "dev-simulated-id", simulated: true };
     }
 
     console.error(
-      "[sendEmail] Gmail API credentials are missing or unconfigured in production environment."
+      "[sendEmail] Brevo API credentials (BREVO_API_KEY, BREVO_FROM_EMAIL) are missing or unconfigured in production environment."
     );
-    throw new Error("Email delivery service is not configured.");
+    throw new Error("Email delivery service is not configured. Missing BREVO_API_KEY or BREVO_FROM_EMAIL.");
   }
 
   // Determine plaintext and HTML contents
@@ -229,59 +113,77 @@ const sendEmail = async (email, subject, text, customHtml) => {
   const htmlContent =
     customHtml || (isUrl ? getVerificationHtml(text) : undefined);
 
-  const fromHeader = formatSender(senderEmail);
-
-  // Encode the MIME message for the Gmail API
-  const rawMessage = buildMimeMessage({
-    from: fromHeader,
-    to: email,
+  const payload = {
+    sender: {
+      name: "Chatora",
+      email: fromEmail,
+    },
+    to: [
+      {
+        email,
+      },
+    ],
     subject,
-    text: plainText,
-    html: htmlContent,
-  });
+    textContent: plainText || "",
+    htmlContent: htmlContent || (plainText ? `<p>${plainText}</p>` : ""),
+  };
 
   try {
-    const oAuth2Client = getOAuth2Client(clientId, clientSecret, refreshToken);
-    const gmail = google.gmail({ version: "v1", auth: oAuth2Client });
-
-    const response = await gmail.users.messages.send({
-      userId: "me",
-      requestBody: {
-        raw: rawMessage,
+    const response = await fetch(BREVO_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": apiKey,
       },
+      body: JSON.stringify(payload),
     });
 
+    if (!response.ok) {
+      let errorData = null;
+      let rawText = "";
+      try {
+        rawText = await response.text();
+        errorData = JSON.parse(rawText);
+      } catch (_) {
+        errorData = { message: rawText || response.statusText };
+      }
+
+      const errorMessage =
+        errorData?.message ||
+        errorData?.error ||
+        response.statusText ||
+        "Brevo API request failed";
+
+      const errorCode = errorData?.code || response.status;
+
+      // Sanitize logging: NEVER log the Brevo API key
+      console.error(`[sendEmail] Brevo API error sending to ${email}:`, {
+        status: response.status,
+        code: errorCode,
+        message: errorMessage,
+      });
+
+      throw new Error(`Email delivery failed: ${errorMessage} (status: ${response.status})`);
+    }
+
+    const data = await response.json().catch(() => ({}));
     console.log(
-      `[sendEmail] Verification email delivered to ${email} (Gmail Message ID: ${response.data?.id})`
+      `[sendEmail] Verification email delivered to ${email} (Brevo Message ID: ${data?.messageId || "ok"})`
     );
-    return response.data;
+    return data;
   } catch (err) {
-    // Sanitize error logging: log status/code/message without leaking sensitive auth tokens/secrets
-    const errorStatus =
-      err.response?.status ||
-      err.status ||
-      err.code ||
-      "UNKNOWN_ERROR";
-    const errorMessage =
-      err.response?.data?.error?.message ||
-      err.response?.data?.error_description ||
-      err.message ||
-      "Gmail API request failed";
-
-    console.error(`[sendEmail] Gmail API error sending to ${email}:`, {
-      status: errorStatus,
-      message: errorMessage,
+    if (err.message && err.message.startsWith("Email delivery failed:")) {
+      throw err;
+    }
+    // Sanitize logging: NEVER log the Brevo API key
+    console.error(`[sendEmail] Brevo request failure sending to ${email}:`, {
+      message: err.message || "Network request failed",
     });
-
-    throw new Error(`Email delivery failed: ${errorMessage}`);
+    throw new Error(`Email delivery failed: ${err.message || "Network error"}`);
   }
 };
 
-// Export main sender function and testing utilities
 sendEmail.getVerificationHtml = getVerificationHtml;
-sendEmail.buildMimeMessage = buildMimeMessage;
-sendEmail.formatSender = formatSender;
-sendEmail.getOAuth2Client = getOAuth2Client;
-sendEmail.resetClient = resetClient;
+sendEmail.BREVO_API_URL = BREVO_API_URL;
 
 module.exports = sendEmail;

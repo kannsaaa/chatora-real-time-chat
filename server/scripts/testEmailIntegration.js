@@ -1,10 +1,9 @@
 // server/scripts/testEmailIntegration.js
 const assert = require("assert");
 const sendEmail = require("../utils/sendEmail.js");
-const { google } = require("googleapis");
 
 async function runTests() {
-  console.log("=== Running Chatora Gmail API Integration Tests ===\n");
+  console.log("=== Running Chatora Brevo Email API Integration Tests ===\n");
   let passed = 0;
   let failed = 0;
 
@@ -32,49 +31,37 @@ async function runTests() {
     }
   }
 
-  // 1. Sender header formatting
-  test("formatSender formats bare email with Chatora display name", () => {
-    const formatted = sendEmail.formatSender("myaccount@gmail.com");
-    assert.strictEqual(formatted, "Chatora <myaccount@gmail.com>");
-  });
+  // Helper to capture all console outputs
+  function captureLogs() {
+    const logs = [];
+    const origLog = console.log;
+    const origWarn = console.warn;
+    const origError = console.error;
 
-  test("formatSender preserves existing custom display name and brackets", () => {
-    const formatted = sendEmail.formatSender("Chatora App <myaccount@gmail.com>");
-    assert.strictEqual(formatted, "Chatora App <myaccount@gmail.com>");
-  });
+    console.log = (...args) => {
+      logs.push(args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
+      origLog(...args);
+    };
+    console.warn = (...args) => {
+      logs.push(args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
+      origWarn(...args);
+    };
+    console.error = (...args) => {
+      logs.push(args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" "));
+      origError(...args);
+    };
 
-  test("formatSender handles empty sender gracefully", () => {
-    const formatted = sendEmail.formatSender("");
-    assert.strictEqual(formatted, "Chatora");
-  });
+    return {
+      getLogs: () => logs.join("\n"),
+      restore: () => {
+        console.log = origLog;
+        console.warn = origWarn;
+        console.error = origError;
+      },
+    };
+  }
 
-  // 2. MIME message generation
-  test("buildMimeMessage creates valid base64url string with multipart/alternative", () => {
-    const raw = sendEmail.buildMimeMessage({
-      from: "Chatora <sender@gmail.com>",
-      to: "testuser@example.com",
-      subject: "Verify your Chatora Account 💬",
-      text: "https://example.com/verify/123",
-      html: "<p>Click here to verify</p>",
-    });
-
-    assert.ok(typeof raw === "string", "MIME message should be a string");
-    assert.ok(!raw.includes("+"), "base64url should not contain '+'");
-    assert.ok(!raw.includes("/"), "base64url should not contain '/'");
-
-    // Decode base64url back to raw MIME
-    const decoded = Buffer.from(raw, "base64url").toString("utf-8");
-    assert.ok(decoded.includes("From: Chatora <sender@gmail.com>"), "Contains From header");
-    assert.ok(decoded.includes("To: testuser@example.com"), "Contains To header");
-    assert.ok(decoded.includes("MIME-Version: 1.0"), "Contains MIME-Version header");
-    assert.ok(decoded.includes("Subject: =?UTF-8?B?"), "Contains RFC-2047 encoded Subject header");
-    assert.ok(decoded.includes("Content-Type: multipart/alternative; boundary="), "Contains multipart Content-Type");
-    assert.ok(decoded.includes('Content-Type: text/plain; charset="UTF-8"'), "Contains text/plain section");
-    assert.ok(decoded.includes('Content-Type: text/html; charset="UTF-8"'), "Contains text/html section");
-    assert.ok(decoded.includes("Content-Transfer-Encoding: base64"), "Contains base64 transfer encoding");
-  });
-
-  // 3. HTML template styling
+  // 1. HTML template styling
   test("getVerificationHtml generates compliant Chatora styled template", () => {
     const testUrl = "http://localhost:5173/users/usr123/verify/tok456";
     const html = sendEmail.getVerificationHtml(testUrl);
@@ -85,28 +72,12 @@ async function runTests() {
     assert.ok(html.includes("This link will expire in 1 hour"), "Contains expiry note");
   });
 
-  // 4. OAuth2 Client Initialization
-  test("getOAuth2Client initializes client with credentials and refresh_token", () => {
-    sendEmail.resetClient();
-    const client = sendEmail.getOAuth2Client("test_id", "test_secret", "test_refresh");
-    assert.ok(client instanceof google.auth.OAuth2, "Should be an instance of google.auth.OAuth2");
-    assert.strictEqual(client._clientId, "test_id");
-    assert.strictEqual(client._clientSecret, "test_secret");
-    assert.strictEqual(client.credentials.refresh_token, "test_refresh");
-
-    // Test cached instance reuse
-    const client2 = sendEmail.getOAuth2Client("test_id", "test_secret", "test_refresh");
-    assert.strictEqual(client, client2, "Should return cached OAuth2 client instance");
-  });
-
-  // 5. Development mode fallback when unconfigured
+  // 2. Development mode fallback when unconfigured
   await asyncTest("Development mode fallback when unconfigured returns simulated response", async () => {
     const prevEnv = { ...process.env };
     process.env.NODE_ENV = "development";
-    process.env.GMAIL_CLIENT_ID = "your_gmail_client_id_here";
-    process.env.GMAIL_CLIENT_SECRET = "your_gmail_client_secret_here";
-    process.env.GMAIL_REFRESH_TOKEN = "your_gmail_refresh_token_here";
-    process.env.GMAIL_SENDER_EMAIL = "your_email@gmail.com";
+    process.env.BREVO_API_KEY = "your_brevo_api_key_here";
+    process.env.BREVO_FROM_EMAIL = "your_brevo_from_email_here";
 
     const res = await sendEmail("dev@example.com", "Test Subject", "https://localhost:5173/verify/1");
     assert.strictEqual(res.simulated, true);
@@ -115,124 +86,201 @@ async function runTests() {
     process.env = prevEnv;
   });
 
-  // 6. Production mode error when unconfigured
-  await asyncTest("Production mode throws error if credentials are unconfigured", async () => {
+  // 3. Production mode error when unconfigured
+  await asyncTest("Production mode throws error if Brevo credentials are unconfigured", async () => {
     const prevEnv = { ...process.env };
     process.env.NODE_ENV = "production";
-    process.env.GMAIL_CLIENT_ID = "your_gmail_client_id_here";
-    process.env.GMAIL_CLIENT_SECRET = "your_gmail_client_secret_here";
-    process.env.GMAIL_REFRESH_TOKEN = "your_gmail_refresh_token_here";
-    process.env.GMAIL_SENDER_EMAIL = "your_email@gmail.com";
+    process.env.BREVO_API_KEY = "your_brevo_api_key_here";
+    process.env.BREVO_FROM_EMAIL = "your_brevo_from_email_here";
 
     let errorThrown = false;
     try {
       await sendEmail("prod@example.com", "Test Subject", "https://localhost:5173/verify/1");
     } catch (err) {
       errorThrown = true;
-      assert.strictEqual(err.message, "Email delivery service is not configured.");
+      assert.ok(
+        err.message.includes("Email delivery service is not configured"),
+        `Expected configuration error, got: ${err.message}`
+      );
     }
     assert.ok(errorThrown, "Should throw when credentials are not configured in production");
 
     process.env = prevEnv;
   });
 
-  // 7. Mocked Gmail API send success
-  await asyncTest("Calls gmail.users.messages.send with userId: 'me' and returns data", async () => {
-    const prevEnv = { ...process.env };
-    process.env.GMAIL_CLIENT_ID = "mock_client_id_123";
-    process.env.GMAIL_CLIENT_SECRET = "mock_client_secret_456";
-    process.env.GMAIL_REFRESH_TOKEN = "mock_refresh_token_789";
-    process.env.GMAIL_SENDER_EMAIL = "sender@gmail.com";
+  // 4. Mock Brevo HTTP request: verify endpoint, headers, sender, recipient, subject, text, HTML, and log sanitization
+  await asyncTest(
+    "Brevo API request verifies endpoint, api-key header, sender, recipient, subject, text, and html",
+    async () => {
+      const prevEnv = { ...process.env };
+      const secretApiKey = "xkeysib-super-secret-production-key-999888";
+      const senderEmail = "chatora-auth@example.com";
+      const recipientEmail = "testuser@example.com";
+      const testUrl = "https://chatora.onrender.com/users/u123/verify/tokenXYZ";
 
-    sendEmail.resetClient();
+      process.env.BREVO_API_KEY = secretApiKey;
+      process.env.BREVO_FROM_EMAIL = senderEmail;
 
-    // Temporarily spy on google.gmail
-    const originalGmail = google.gmail;
-    let sendCalledWith = null;
+      let calledUrl = null;
+      let calledOptions = null;
+      let calledBody = null;
 
-    google.gmail = function (options) {
-      return {
-        users: {
-          messages: {
-            send: async (params) => {
-              sendCalledWith = params;
-              return {
-                data: {
-                  id: "gmail_msg_id_999",
-                  threadId: "gmail_thread_999",
-                  labelIds: ["SENT"],
-                },
-              };
-            },
-          },
-        },
+      const originalFetch = global.fetch;
+      const logCapture = captureLogs();
+
+      global.fetch = async (url, options) => {
+        calledUrl = url;
+        calledOptions = options;
+        calledBody = JSON.parse(options.body);
+
+        return {
+          ok: true,
+          status: 201,
+          statusText: "Created",
+          json: async () => ({ messageId: "<brevo-test-msg-id-123@smtp-relay.brevo.com>" }),
+          text: async () => JSON.stringify({ messageId: "<brevo-test-msg-id-123@smtp-relay.brevo.com>" }),
+        };
       };
-    };
 
-    try {
-      const result = await sendEmail("target@gmail.com", "Verify Email", "https://localhost:5173/verify/abc");
-      assert.ok(sendCalledWith, "send should have been called");
-      assert.strictEqual(sendCalledWith.userId, "me", "userId must be 'me'");
-      assert.ok(sendCalledWith.requestBody?.raw, "requestBody.raw must be provided");
-      assert.strictEqual(result.id, "gmail_msg_id_999", "Returns Gmail message id");
-    } finally {
-      google.gmail = originalGmail;
-      process.env = prevEnv;
-      sendEmail.resetClient();
+      try {
+        const result = await sendEmail(recipientEmail, "Verify Email", testUrl);
+
+        // 1. Correct Brevo endpoint
+        assert.strictEqual(
+          calledUrl,
+          "https://api.brevo.com/v3/smtp/email",
+          "Must call Brevo SMTP email endpoint"
+        );
+        assert.strictEqual(calledOptions.method, "POST", "Method must be POST");
+
+        // 2. Correct API key header & Content-Type
+        assert.strictEqual(
+          calledOptions.headers["Content-Type"],
+          "application/json",
+          "Content-Type header must be application/json"
+        );
+        assert.strictEqual(
+          calledOptions.headers["api-key"],
+          secretApiKey,
+          "api-key header must match process.env.BREVO_API_KEY"
+        );
+
+        // 3. Correct sender
+        assert.deepStrictEqual(
+          calledBody.sender,
+          { name: "Chatora", email: senderEmail },
+          "Sender must have name 'Chatora' and configured from-email"
+        );
+
+        // 4. Correct recipient
+        assert.deepStrictEqual(
+          calledBody.to,
+          [{ email: recipientEmail }],
+          "to field must contain recipient email"
+        );
+
+        // 5. Correct subject
+        assert.strictEqual(calledBody.subject, "Verify Email", "Subject must match");
+
+        // 6. Correct text content
+        assert.ok(
+          calledBody.textContent.includes("Welcome to Chatora!"),
+          "textContent must include greeting"
+        );
+        assert.ok(
+          calledBody.textContent.includes(testUrl),
+          "textContent must include verification link"
+        );
+
+        // 7. Correct HTML content
+        assert.ok(
+          calledBody.htmlContent.includes("Verify Your Email Address"),
+          "htmlContent must include verification heading"
+        );
+        assert.ok(
+          calledBody.htmlContent.includes(testUrl),
+          "htmlContent must include verification URL"
+        );
+        assert.ok(
+          calledBody.htmlContent.includes("Chatora"),
+          "htmlContent must include Chatora branding"
+        );
+
+        // Return value check
+        assert.strictEqual(
+          result.messageId,
+          "<brevo-test-msg-id-123@smtp-relay.brevo.com>",
+          "Returns Brevo response data"
+        );
+
+        // 8. No API key is exposed in logs
+        const loggedOutput = logCapture.getLogs();
+        assert.ok(
+          !loggedOutput.includes(secretApiKey),
+          "CRITICAL: Brevo API key must NEVER appear in console logs!"
+        );
+      } finally {
+        global.fetch = originalFetch;
+        logCapture.restore();
+        process.env = prevEnv;
+      }
     }
-  });
+  );
 
-  // 8. Mocked Gmail API error handling (does not fake success)
-  await asyncTest("Throws when Gmail API fails and logs sanitized error without secrets", async () => {
-    const prevEnv = { ...process.env };
-    process.env.GMAIL_CLIENT_ID = "mock_client_id_123";
-    process.env.GMAIL_CLIENT_SECRET = "mock_client_secret_456";
-    process.env.GMAIL_REFRESH_TOKEN = "mock_refresh_token_789";
-    process.env.GMAIL_SENDER_EMAIL = "sender@gmail.com";
+  // 5. Mock Brevo non-2xx error handling: verifies server-side error logging without leaking secrets
+  await asyncTest(
+    "Brevo API error response (non-2xx) logs sanitized error and throws without leaking API key",
+    async () => {
+      const prevEnv = { ...process.env };
+      const secretApiKey = "xkeysib-secret-error-test-key-54321";
+      process.env.BREVO_API_KEY = secretApiKey;
+      process.env.BREVO_FROM_EMAIL = "chatora-auth@example.com";
 
-    sendEmail.resetClient();
+      const originalFetch = global.fetch;
+      const logCapture = captureLogs();
 
-    const originalGmail = google.gmail;
-    google.gmail = function () {
-      return {
-        users: {
-          messages: {
-            send: async () => {
-              const err = new Error("Invalid OAuth2 credentials");
-              err.response = {
-                status: 401,
-                data: {
-                  error: {
-                    code: 401,
-                    message: "Invalid Credentials: invalid_grant",
-                    status: "UNAUTHENTICATED",
-                  },
-                },
-              };
-              throw err;
-            },
-          },
-        },
+      global.fetch = async () => {
+        return {
+          ok: false,
+          status: 401,
+          statusText: "Unauthorized",
+          text: async () =>
+            JSON.stringify({
+              code: "unauthorized",
+              message: "Key not found or account deactivated",
+            }),
+        };
       };
-    };
 
-    let errorThrown = false;
-    try {
-      await sendEmail("target@gmail.com", "Verify Email", "https://localhost:5173/verify/abc");
-    } catch (err) {
-      errorThrown = true;
+      let errorThrown = false;
+      try {
+        await sendEmail("target@example.com", "Verify Email", "https://localhost:5173/verify/abc");
+      } catch (err) {
+        errorThrown = true;
+        assert.ok(
+          err.message.includes("Key not found or account deactivated"),
+          `Expected error message from Brevo, got: ${err.message}`
+        );
+        assert.ok(
+          err.message.includes("401"),
+          `Expected status 401 in error message, got: ${err.message}`
+        );
+      } finally {
+        global.fetch = originalFetch;
+        logCapture.restore();
+        process.env = prevEnv;
+      }
+
+      assert.ok(errorThrown, "Should throw when Brevo returns non-2xx response");
+
+      // Verify no API key in logs
+      const loggedOutput = logCapture.getLogs();
       assert.ok(
-        err.message.includes("Email delivery failed: Invalid Credentials: invalid_grant"),
-        "Should propagate error message accurately"
+        !loggedOutput.includes(secretApiKey),
+        "CRITICAL: Brevo API key must NEVER appear in error logs!"
       );
-    } finally {
-      google.gmail = originalGmail;
-      process.env = prevEnv;
-      sendEmail.resetClient();
     }
-
-    assert.ok(errorThrown, "Should not fake success when Gmail API send fails");
-  });
+  );
 
   console.log(`\n========================================`);
   console.log(`Tests Completed: ${passed} passed, ${failed} failed`);
