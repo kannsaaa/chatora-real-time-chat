@@ -4,6 +4,7 @@ const registerController = require('../controllers/registerController.js');
 const loginController = require('../controllers/loginController.js');
 const logoutController = require('../controllers/logoutController.js');
 const verifyEmail = require('../controllers/emailVerifyController.js');
+const passwordResetController = require('../controllers/passwordResetController.js');
 const profileController = require("../controllers/profileController.js");
 const messageController = require("../controllers/messageController.js");
 const peopleController = require("../controllers/peopleController.js");
@@ -16,6 +17,13 @@ router.post("/login", loginController);
 router.post("/logout", logoutController);
 router.get("/username/check", profileController.checkUsernameAvailability);
 router.get("/:id/verify/:token", verifyEmail);
+
+// Password Reset Routes
+router.post("/forgot-password", passwordResetController.requestPasswordReset);
+router.get("/password-reset/:id/:token", passwordResetController.verifyResetToken);
+router.post("/password-reset/:id/:token", passwordResetController.resetPassword);
+router.get("/reset-password/:id/:token", passwordResetController.verifyResetToken);
+router.post("/reset-password/:id/:token", passwordResetController.resetPassword);
 router.get("/profile", profileController.profileController);
 router.get("/messages/:userId", messageController);
 router.post("/messages/:userId", messageController.sendMessageRest);

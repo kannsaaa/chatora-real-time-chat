@@ -19,6 +19,8 @@ import Profile from "./components/Profile";
 import People from "./pages/People";
 import Friends from "./pages/Friends";
 import Privacy from "./pages/Privacy";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import MobileTestPreview from "./pages/MobileTestPreview";
 import { baseUrl } from "../apiConfig";
 
@@ -74,6 +76,18 @@ const router = createBrowserRouter([
       {
         path: "login",
         element: <Login />,
+      },
+      {
+        path: "forgot-password",
+        element: <ForgotPassword />,
+      },
+      {
+        path: "reset-password/:id/:token",
+        element: <ResetPassword />,
+      },
+      {
+        path: "password-reset/:id/:token",
+        element: <ResetPassword />,
       },
       {
         path: "users/:id/verify/:token",

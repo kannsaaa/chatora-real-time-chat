@@ -72,6 +72,17 @@ async function runTests() {
     assert.ok(html.includes("This link will expire in 1 hour"), "Contains expiry note");
   });
 
+  test("getPasswordResetHtml generates compliant Chatora password reset template", () => {
+    const testUrl = "http://localhost:5173/reset-password/usr123/tok456";
+    const html = sendEmail.getPasswordResetHtml(testUrl, "Alex");
+    assert.ok(html.includes("Chatora"), "Contains Chatora title");
+    assert.ok(html.includes("Reset Your Password"), "Contains reset password header");
+    assert.ok(html.includes("Hi Alex,"), "Contains personalized greeting");
+    assert.ok(html.includes(testUrl), "Contains reset URL");
+    assert.ok(html.includes("Reset Password ✨"), "Contains CTA button text");
+    assert.ok(html.includes("This link will expire in 1 hour"), "Contains expiry note");
+  });
+
   // 2. Development mode fallback when unconfigured
   await asyncTest("Development mode fallback when unconfigured returns simulated response", async () => {
     const prevEnv = { ...process.env };

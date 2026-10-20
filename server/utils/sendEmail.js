@@ -63,6 +63,71 @@ const getVerificationHtml = (url) => {
 };
 
 /**
+ * Generates an HTML password reset email template conforming to Chatora's visual style.
+ * @param {string} url - Password reset link
+ * @param {string} [name] - User's first name
+ * @returns {string} HTML email string
+ */
+const getPasswordResetHtml = (url, name) => {
+  const greeting = name ? `Hi ${name},` : "Hello,";
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset your Chatora Password</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FFFDF9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #4A154B;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #FFFDF9; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" style="max-width: 520px; background-color: #FFFFFF; border-radius: 24px; border: 1px solid #FFE4E6; box-shadow: 0 10px 25px -5px rgba(255, 179, 198, 0.2); overflow: hidden; padding: 36px 32px;" cellspacing="0" cellpadding="0">
+          <tr>
+            <td align="center" style="padding-bottom: 24px;">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; color: #2D0C30; letter-spacing: -0.5px;">
+                Chatora <span style="font-size: 24px;">💬</span>
+              </h1>
+              <p style="margin: 6px 0 0 0; font-size: 13px; color: #8A4F7D; font-weight: 500;">Real-time sweet chat application</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 16px 0; border-top: 1px solid #FDF2F4; border-bottom: 1px solid #FDF2F4;">
+              <h2 style="margin: 0 0 12px 0; font-size: 20px; font-weight: 700; color: #2D0C30;">Reset Your Password</h2>
+              <p style="margin: 0 0 16px 0; font-size: 15px; line-height: 1.6; color: #5C3256;">
+                ${greeting}
+              </p>
+              <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #5C3256;">
+                We received a request to reset your Chatora account password. Tap the button below to choose a new password:
+              </p>
+              <div align="center" style="margin: 28px 0;">
+                <a href="${url}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #FF9EAA 0%, #FFB3C6 100%); color: #2D0C30; text-decoration: none; font-size: 15px; font-weight: 700; padding: 14px 32px; border-radius: 16px; box-shadow: 0 4px 14px rgba(255, 158, 170, 0.4);">
+                  Reset Password ✨
+                </a>
+              </div>
+              <p style="margin: 20px 0 6px 0; font-size: 13px; line-height: 1.5; color: #8A4F7D;">
+                If the button above doesn't work, copy and paste this link into your browser:
+              </p>
+              <p style="margin: 0; font-size: 12px; line-height: 1.4; word-break: break-all;">
+                <a href="${url}" style="color: #FF5E8E; text-decoration: underline;">${url}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding-top: 24px;">
+              <p style="margin: 0; font-size: 12px; color: #A67C9B;">
+                This link will expire in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+};
+
+/**
  * Sends a transactional email using Brevo (formerly Sendinblue) Transactional Email API.
  * @param {string} email - Destination recipient email address
  * @param {string} subject - Email subject line
@@ -184,6 +249,7 @@ const sendEmail = async (email, subject, text, customHtml) => {
 };
 
 sendEmail.getVerificationHtml = getVerificationHtml;
+sendEmail.getPasswordResetHtml = getPasswordResetHtml;
 sendEmail.BREVO_API_URL = BREVO_API_URL;
 
 module.exports = sendEmail;

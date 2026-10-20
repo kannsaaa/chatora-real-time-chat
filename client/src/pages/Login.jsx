@@ -127,18 +127,12 @@ const Login = () => {
                 </span>
               </label>
 
-              <button
-                type="button"
-                onClick={() =>
-                  toast(
-                    "Password reset is disabled in this environment. Contact admin.",
-                    { icon: "ℹ️" }
-                  )
-                }
-                className="text-xs font-semibold text-chatora-pink hover:text-chatora-pinkHover hover:underline bg-transparent border-0 cursor-pointer p-0 transition-colors"
+              <Link
+                to="/forgot-password"
+                className="text-xs font-semibold text-chatora-pink hover:text-chatora-pinkHover hover:underline transition-colors"
               >
                 Forgot password?
-              </button>
+              </Link>
             </div>
 
             <button

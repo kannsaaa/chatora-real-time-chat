@@ -4,7 +4,7 @@
   "description": "Chatora - Real-time Chat Application Backend",
   "main": "index.js",
   "scripts": {
-    "test": "node scripts/testEmailIntegration.js && node scripts/testRegisterVerifyFlow.js && node scripts/testChaosModes.js",
+    "test": "node scripts/testEmailIntegration.js && node scripts/testRegisterVerifyFlow.js && node scripts/testChaosModes.js && node scripts/testPasswordResetFlow.js",
     "start": "node index.js",
     "dev": "nodemon index.js"
   },
