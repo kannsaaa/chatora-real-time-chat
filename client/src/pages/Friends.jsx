@@ -21,6 +21,7 @@ const Friends = () => {
   const [blockTarget, setBlockTarget] = useState(null);
   const [unblockTarget, setUnblockTarget] = useState(null);
   const [activeMenuId, setActiveMenuId] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -34,15 +35,34 @@ const Friends = () => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Escape") {
-        setUnfriendTarget(null);
-        setBlockTarget(null);
-        setUnblockTarget(null);
-        setActiveMenuId(null);
+        if (!actionLoading) {
+          setUnfriendTarget(null);
+          setBlockTarget(null);
+          setUnblockTarget(null);
+          setActiveMenuId(null);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [actionLoading]);
+
+  // Handle outside click to close active 3-dot dropdown menu
+  useEffect(() => {
+    if (!activeMenuId) return;
+    const handleClickOutside = (e) => {
+      if (e.target.closest(`[data-menu-id="${activeMenuId}"]`)) {
+        return;
+      }
+      setActiveMenuId(null);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, [activeMenuId]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -103,41 +123,64 @@ const Friends = () => {
   };
 
   const handleConfirmUnfriend = async () => {
-    if (!unfriendTarget) return;
+    if (!unfriendTarget || actionLoading) return;
+    const target = unfriendTarget;
+    setActionLoading(true);
     try {
-      await axios.delete(`/api/friends/${unfriendTarget._id}`);
-      toast.success(`Unfriended ${unfriendTarget.firstName || "user"}`);
+      await axios.delete(`/api/friends/${target._id}`);
+      toast.success("Unfriended successfully");
+      setFriends((prev) => prev.filter((f) => f._id !== target._id));
       setUnfriendTarget(null);
       fetchData();
     } catch (err) {
       console.error("Error unfriending user:", err);
       toast.error(err?.response?.data?.message || "Failed to unfriend");
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleConfirmBlock = async () => {
-    if (!blockTarget) return;
+    if (!blockTarget || actionLoading) return;
+    const target = blockTarget;
+    setActionLoading(true);
     try {
-      await axios.post(`/api/friends/block/${blockTarget._id}`);
-      toast.success(`Blocked ${blockTarget.firstName || "user"}`);
+      await axios.post(`/api/friends/block/${target._id}`);
+      toast.success("User blocked");
+      setFriends((prev) => prev.filter((f) => f._id !== target._id));
+      setBlocked((prev) => [
+        {
+          _id: `temp-${Date.now()}`,
+          user: target,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev.filter((b) => b?.user?._id !== target._id),
+      ]);
       setBlockTarget(null);
       fetchData();
     } catch (err) {
       console.error("Error blocking user:", err);
       toast.error(err?.response?.data?.message || "Failed to block user");
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleConfirmUnblock = async () => {
-    if (!unblockTarget) return;
+    if (!unblockTarget || actionLoading) return;
+    const target = unblockTarget;
+    setActionLoading(true);
     try {
-      await axios.delete(`/api/friends/block/${unblockTarget._id}`);
-      toast.success(`Unblocked ${unblockTarget.firstName || "user"}`);
+      await axios.delete(`/api/friends/block/${target._id}`);
+      toast.success("User unblocked");
+      setBlocked((prev) => prev.filter((b) => b?.user?._id !== target._id));
       setUnblockTarget(null);
       fetchData();
     } catch (err) {
       console.error("Error unblocking user:", err);
       toast.error(err?.response?.data?.message || "Failed to unblock user");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -163,13 +206,7 @@ const Friends = () => {
     <div className="flex min-h-screen bg-cream-100 relative text-plum-900">
       <Nav pendingRequestsCount={pendingReceivedCount} />
 
-      {/* Backdrop for open menus */}
-      {activeMenuId && (
-        <div
-          className="fixed inset-0 z-30"
-          onClick={() => setActiveMenuId(null)}
-        ></div>
-      )}
+
 
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-10 max-w-6xl mx-auto w-full pb-24 md:pb-10">
         {/* Page Header */}
@@ -341,17 +378,22 @@ const Friends = () => {
                   return (
                     <div
                       key={friend._id}
-                      className="bg-white border border-chatora-border hover:border-chatora-pink/40 rounded-3xl p-5 flex flex-col items-center shadow-sweet hover:shadow-sweet-lg transition-all duration-200 hover:-translate-y-1 relative group"
+                      data-menu-id={friend._id}
+                      className={`bg-white border border-chatora-border hover:border-chatora-pink/40 rounded-3xl p-5 flex flex-col items-center shadow-sweet hover:shadow-sweet-lg transition-all duration-200 relative group ${
+                        isMenuOpen ? "z-30" : "hover:-translate-y-1"
+                      }`}
                     >
                       {/* Options menu trigger in top right */}
                       <div className="absolute top-3 right-3">
                         <button
                           type="button"
-                          onClick={() =>
-                            setActiveMenuId(isMenuOpen ? null : friend._id)
-                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveMenuId(isMenuOpen ? null : friend._id);
+                          }}
                           className="p-1.5 rounded-xl text-plum-400 hover:text-plum-800 hover:bg-cream-100 transition-colors"
                           title="Friend options"
+                          aria-label="Friend options"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -364,10 +406,14 @@ const Friends = () => {
                         </button>
 
                         {isMenuOpen && (
-                          <div className="absolute right-0 top-8 w-40 bg-white border border-chatora-border rounded-2xl shadow-sweet-lg py-1 z-40 text-xs animate-in fade-in zoom-in-95 duration-100">
+                          <div
+                            onClick={(e) => e.stopPropagation()}
+                            className="absolute right-0 top-8 w-40 bg-white border border-chatora-border rounded-2xl shadow-sweet-lg py-1 z-50 text-xs animate-in fade-in zoom-in-95 duration-100"
+                          >
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 setUnfriendTarget(friend);
                               }}
@@ -392,7 +438,8 @@ const Friends = () => {
                             <div className="h-px bg-chatora-border my-1"></div>
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setActiveMenuId(null);
                                 setBlockTarget(friend);
                               }}
@@ -703,29 +750,66 @@ const Friends = () => {
       {/* UNFRIEND CONFIRMATION MODAL */}
       {/* ==================================================== */}
       {unfriendTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-plum-950/40 backdrop-blur-sm select-none">
-          <div className="w-full max-w-sm bg-white border border-chatora-border rounded-3xl p-6 shadow-sweet-lg text-left">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !actionLoading) {
+              setUnfriendTarget(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm bg-white border border-border-subtle rounded-3xl p-6 shadow-sweet-lg text-left animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mb-3 text-amber-500 text-lg shadow-sweet-sm">
+              👋
+            </div>
             <h3 className="text-base font-extrabold text-plum-900 mb-1.5">
-              Unfriend {unfriendTarget.firstName} {unfriendTarget.lastName}?
+              Unfriend {`${unfriendTarget.firstName || ""} ${unfriendTarget.lastName || ""}`.trim() || unfriendTarget.username || "user"}?
             </h3>
-            <p className="text-xs text-plum-600 mb-6 leading-relaxed">
+            <p className="text-xs text-plum-600 mb-6 leading-relaxed font-medium">
               You will no longer be able to message each other unless you become
               friends again.
             </p>
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => setUnfriendTarget(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-plum-600 hover:text-plum-900 bg-cream-100 hover:bg-cream-200 transition-colors"
+                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-plum-700 hover:text-plum-900 bg-cream-100 hover:bg-cream-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={handleConfirmUnfriend}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-chatora-coral hover:opacity-90 transition-colors shadow-sweet active:scale-95"
+                className="px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 transition-all shadow-sweet-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                Unfriend
+                {actionLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-3.5 w-3.5 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    <span>Unfriending...</span>
+                  </>
+                ) : (
+                  <span>Unfriend 👋</span>
+                )}
               </button>
             </div>
           </div>
@@ -736,45 +820,66 @@ const Friends = () => {
       {/* BLOCK CONFIRMATION MODAL */}
       {/* ==================================================== */}
       {blockTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-plum-950/40 backdrop-blur-sm select-none">
-          <div className="w-full max-w-sm bg-white border border-chatora-border rounded-3xl p-6 shadow-sweet-lg text-left">
-            <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mb-3 text-chatora-coral">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={1.75}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M18.364 18.364A9 9 0 0 0 5.636 5.636m12.728 12.728A9 9 0 0 1 5.636 5.636m12.728 12.728L5.636 5.636"
-                />
-              </svg>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !actionLoading) {
+              setBlockTarget(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm bg-white border border-border-subtle rounded-3xl p-6 shadow-sweet-lg text-left animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-11 h-11 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mb-3 text-rose-500 text-lg shadow-sweet-sm">
+              🚫
             </div>
             <h3 className="text-base font-extrabold text-plum-900 mb-1.5">
-              Block {blockTarget.firstName} {blockTarget.lastName}?
+              Block {`${blockTarget.firstName || ""} ${blockTarget.lastName || ""}`.trim() || blockTarget.username || "user"}?
             </h3>
-            <p className="text-xs text-plum-600 mb-6 leading-relaxed">
+            <p className="text-xs text-plum-600 mb-6 leading-relaxed font-medium">
               Blocking will prevent them from sending you friend requests and
               messages.
             </p>
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => setBlockTarget(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-plum-600 hover:text-plum-900 bg-cream-100 hover:bg-cream-200 transition-colors"
+                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-plum-700 hover:text-plum-900 bg-cream-100 hover:bg-cream-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={handleConfirmBlock}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-chatora-coral hover:opacity-90 transition-colors shadow-sweet active:scale-95"
+                className="px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-rose-500 hover:bg-rose-600 transition-all shadow-sweet-sm active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                Block
+                {actionLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-3.5 w-3.5 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    <span>Blocking...</span>
+                  </>
+                ) : (
+                  <span>Block User 🚫</span>
+                )}
               </button>
             </div>
           </div>
@@ -785,29 +890,66 @@ const Friends = () => {
       {/* UNBLOCK CONFIRMATION MODAL */}
       {/* ==================================================== */}
       {unblockTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-plum-950/40 backdrop-blur-sm select-none">
-          <div className="w-full max-w-sm bg-white border border-chatora-border rounded-3xl p-6 shadow-sweet-lg text-left">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm select-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !actionLoading) {
+              setUnblockTarget(null);
+            }
+          }}
+        >
+          <div className="w-full max-w-sm bg-white border border-border-subtle rounded-3xl p-6 shadow-sweet-lg text-left animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-11 h-11 rounded-2xl bg-pink-50 border border-chatora-pink/20 flex items-center justify-center mb-3 text-chatora-pink text-lg shadow-sweet-sm">
+              ✨
+            </div>
             <h3 className="text-base font-extrabold text-plum-900 mb-1.5">
-              Unblock {unblockTarget.firstName} {unblockTarget.lastName}?
+              Unblock {`${unblockTarget.firstName || ""} ${unblockTarget.lastName || ""}`.trim() || unblockTarget.username || "user"}?
             </h3>
-            <p className="text-xs text-plum-600 mb-6 leading-relaxed">
+            <p className="text-xs text-plum-600 mb-6 leading-relaxed font-medium">
               They will be able to see you in the member directory, but you will
               not be friends until a new friend request is accepted.
             </p>
             <div className="flex items-center justify-end gap-2.5">
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={() => setUnblockTarget(null)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-plum-600 hover:text-plum-900 bg-cream-100 hover:bg-cream-200 transition-colors"
+                className="px-4 py-2.5 rounded-2xl text-xs font-bold text-plum-700 hover:text-plum-900 bg-cream-100 hover:bg-cream-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="button"
+                disabled={actionLoading}
                 onClick={handleConfirmUnblock}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-chatora-pink to-chatora-peach hover:opacity-95 transition-all shadow-sweet-pink active:scale-95"
+                className="px-5 py-2.5 rounded-2xl text-xs font-bold text-white bg-gradient-to-r from-chatora-pink to-chatora-peach hover:opacity-95 transition-all shadow-sweet-pink active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
               >
-                Unblock ✨
+                {actionLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin h-3.5 w-3.5 text-white"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v8H4z"
+                      ></path>
+                    </svg>
+                    <span>Unblocking...</span>
+                  </>
+                ) : (
+                  <span>Unblock ✨</span>
+                )}
               </button>
             </div>
           </div>
