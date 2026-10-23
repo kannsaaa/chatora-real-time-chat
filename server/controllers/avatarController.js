@@ -1,10 +1,11 @@
 //avatarController.js
 const jwt = require("jsonwebtoken");
 const Avatar = require("../models/avatars");
+const protect = require("../middleware/protect");
 
 async function avatarController(req, res) {
   // Check authentication
-  const token = req.cookies?.authToken;
+  const token = protect.extractToken ? protect.extractToken(req) : (req.cookies?.authToken || null);
   if (!token) {
     return res.status(401).json({ message: "Authentication required" });
   }

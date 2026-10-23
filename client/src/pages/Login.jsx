@@ -35,6 +35,11 @@ const Login = () => {
         withCredentials: true,
       });
       if (response.status === 200) {
+        if (response.data?.token) {
+          try {
+            localStorage.setItem("authToken", response.data.token);
+          } catch (_) {}
+        }
         toast.success(response.data.message || "Welcome back to Chatora! 💕");
         setAuthenticated(true);
       }

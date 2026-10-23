@@ -118,6 +118,7 @@ const createWebSocketServer = (server) => {
       console.error("WebSocket connection error:", err.message);
     });
 
+    let token = null;
     const cookies = req.headers.cookie;
     if (cookies) {
       const tokenString = cookies
@@ -125,16 +126,29 @@ const createWebSocketServer = (server) => {
         .find((str) => str.trim().startsWith("authToken="));
 
       if (tokenString) {
-        const token = tokenString.split("=")[1];
-        try {
-          const userData = jwt.verify(token, process.env.JWTPRIVATEKEY);
-          if (userData && userData._id) {
-            connection.userId = userData._id;
-            connection.username = `${userData.firstName} ${userData.lastName}`;
-          }
-        } catch (err) {
-          // Token invalid or expired
+        token = tokenString.split("=")[1];
+      }
+    }
+
+    if (!token && req.url) {
+      try {
+        const parsedUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+        const queryToken = parsedUrl.searchParams.get("token");
+        if (queryToken) {
+          token = queryToken;
         }
+      } catch (_) {}
+    }
+
+    if (token) {
+      try {
+        const userData = jwt.verify(token, process.env.JWTPRIVATEKEY);
+        if (userData && userData._id) {
+          connection.userId = userData._id;
+          connection.username = `${userData.firstName} ${userData.lastName}`;
+        }
+      } catch (err) {
+        // Token invalid or expired
       }
     }
 

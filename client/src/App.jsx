@@ -28,6 +28,20 @@ import { baseUrl } from "../apiConfig";
 axios.defaults.baseURL = baseUrl;
 axios.defaults.withCredentials = true;
 
+// Automatically attach Bearer token from localStorage to all outgoing requests
+axios.interceptors.request.use(
+  (config) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      if (token && !config.headers.Authorization) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } catch (_) {}
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 const Layout = () => {
   const { isAuthenticated, checkAuth, loading } = useAuth();
   useEffect(() => {

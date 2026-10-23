@@ -35,6 +35,9 @@ const People = () => {
       setUsers(filtered);
     } catch (err) {
       console.error("Error fetching people:", err);
+      if (err?.response?.status === 401) {
+        toast.error("Session expired or authentication required. Please log in.");
+      }
     } finally {
       setLoading(false);
     }

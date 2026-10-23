@@ -19,6 +19,9 @@ export const AuthProvider = ({ children }) => {
       setAuthenticated(true);
     } catch (error) {
       console.log("Token does not exist or invalid. Setting authenticated to false");
+      try {
+        localStorage.removeItem("authToken");
+      } catch (_) {}
       setAuthenticated(false);
     } finally {
       setLoading(false);
@@ -31,6 +34,9 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       console.log("Error during logout API call", err);
     }
+    try {
+      localStorage.removeItem("authToken");
+    } catch (_) {}
     setAuthenticated(false);
   };
 

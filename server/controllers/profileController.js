@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models/userModel");
+const protect = require("../middleware/protect");
 
 const profileController = async (req, res) => {
-  const token = req.cookies?.authToken;
+  const token = protect.extractToken ? protect.extractToken(req) : (req.cookies?.authToken || null);
   if (!token) {
     return res.status(401).json({ message: "Authentication required" });
   }
@@ -20,7 +21,7 @@ const profileController = async (req, res) => {
 };
 
 const profileUpdate = async (req, res) => {
-  const token = req.cookies?.authToken;
+  const token = protect.extractToken ? protect.extractToken(req) : (req.cookies?.authToken || null);
   if (!token) {
     return res.status(401).json({ message: "Authentication required" });
   }
@@ -112,7 +113,7 @@ const checkUsernameAvailability = async (req, res) => {
 
     // Optional: check if caller has auth token to exclude themselves
     let currentUserId = null;
-    const token = req.cookies?.authToken;
+    const token = protect.extractToken ? protect.extractToken(req) : (req.cookies?.authToken || null);
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWTPRIVATEKEY);

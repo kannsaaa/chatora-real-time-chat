@@ -1,8 +1,9 @@
 const jwt = require("jsonwebtoken");
 const { User } = require("../models/userModel");
+const protect = require("../middleware/protect");
 
 const peopleController = async (req, res) => {
-  const token = req.cookies?.authToken;
+  const token = protect.extractToken ? protect.extractToken(req) : (req.cookies?.authToken || null);
   if (!token) {
     return res.status(401).json({ message: "Authentication required" });
   }

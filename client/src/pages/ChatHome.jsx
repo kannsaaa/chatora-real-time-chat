@@ -412,7 +412,14 @@ const ChatHome = () => {
 
   // Connect WebSocket once when component mounts
   useEffect(() => {
-    const socket = new WebSocket(socketUrl);
+    let wsToken = null;
+    try {
+      wsToken = localStorage.getItem("authToken");
+    } catch (_) {}
+    const wsUrl = wsToken
+      ? `${socketUrl}${socketUrl.includes("?") ? "&" : "?"}token=${encodeURIComponent(wsToken)}`
+      : socketUrl;
+    const socket = new WebSocket(wsUrl);
     socket.addEventListener("message", handleMessage);
     setWs(socket);
     return () => {

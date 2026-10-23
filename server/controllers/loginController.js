@@ -42,7 +42,7 @@ const loginController = async (req, res) => {
         secure: process.env.NODE_ENV === "production",
         expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       })
-      .send({ message: "Login successful", status: 200 });
+      .send({ message: "Login successful", status: 200, token });
     return;
   } catch (error) {
     console.error("Error in loginController:", error);

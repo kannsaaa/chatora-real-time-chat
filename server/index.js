@@ -44,6 +44,13 @@ const corsOptions = {
     }
   },
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Cookie",
+    "X-Requested-With",
+    "Accept",
+  ],
   optionsSuccessStatus: 204,
   credentials: true, // Allow credentials like cookies
 };
